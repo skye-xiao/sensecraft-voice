@@ -190,8 +190,13 @@ class SenseCraftVoiceClient {
       throw StateError('Clip AT characteristics not found on device');
     }
 
-    await resp.setNotifyValue(true);
-    await file.setNotifyValue(true);
+    // Some Android stacks (incl. Huawei) return GATT 133 on the first CCCD write;
+    // retry after a short settle before tearing down the link.
+    if (Platform.isAndroid) {
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+    await _setNotifyWithRetry(resp, true, label: 'responseTx');
+    await _setNotifyWithRetry(file, true, label: 'fileData');
     await _requestAndroidHighConnectionPriority(device);
 
     Stream<int>? batteryStream;
@@ -261,6 +266,39 @@ class SenseCraftVoiceClient {
 /// Android-only: ask the stack for high (low-latency) connection priority to
 /// boost notify throughput. The peripheral may reject the parameter update,
 /// in which case this is a no-op.
+Future<void> _setNotifyWithRetry(
+  BluetoothCharacteristic characteristic,
+  bool enable, {
+  required String label,
+  int maxAttempts = 3,
+}) async {
+  Object? lastError;
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await characteristic.setNotifyValue(enable);
+      if (attempt > 1) {
+        SdkLog.i(
+          'BLE setNotifyValue($enable) $label succeeded on attempt $attempt',
+        );
+      }
+      return;
+    } catch (e, st) {
+      lastError = e;
+      if (attempt >= maxAttempts) break;
+      SdkLog.w(
+        'BLE setNotifyValue($enable) $label attempt $attempt/$maxAttempts failed',
+        e,
+        st,
+      );
+      await Future<void>.delayed(Duration(milliseconds: 200 * attempt));
+    }
+  }
+  Error.throwWithStackTrace(
+    lastError ?? StateError('setNotifyValue failed for $label'),
+    StackTrace.current,
+  );
+}
+
 Future<void> _requestAndroidHighConnectionPriority(
   BluetoothDevice device,
 ) async {

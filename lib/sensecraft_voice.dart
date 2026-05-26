@@ -33,6 +33,7 @@ export 'src/ble/ble_uuids.dart';
 export 'src/ble/ble_transfer_frame_handler.dart';
 export 'src/ble/clip_file_data.dart';
 export 'src/ble/mtu_manager.dart';
+export 'src/ble/transfer_json_events.dart';
 
 // AT(JSON) protocol transport
 export 'src/at/at_transport.dart';
@@ -60,6 +61,7 @@ export 'src/models/wifi_hotspot_info.dart';
 // Utilities
 export 'src/utils/crc32.dart';
 export 'src/utils/sdk_log.dart';
+export 'src/utils/transfer_progress.dart';
 
 // Re-export the `Guid`, `ScanResult`, `BluetoothDevice` types the SDK exposes
 // in its public API so callers don't need a second `flutter_blue_plus`
