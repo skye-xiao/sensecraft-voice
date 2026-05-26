@@ -1,0 +1,433 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+
+import '../ble/mtu_manager.dart';
+import '../utils/sdk_log.dart';
+
+/// AT(JSON) protocol transport over BLE (GATT) for SenseCraft Voice Clip
+/// devices.
+///
+/// Spec summary:
+/// - App writes AT commands to the *command* characteristic (Write or
+///   WriteWithoutResponse).
+/// - Device pushes JSON responses / progress on the *response* characteristic
+///   (Notify), possibly chunked across multiple notifications.
+/// - Device pushes raw file bytes on the *file-data* characteristic (Notify).
+///
+/// Higher layers reassemble complete JSON objects via [_JsonObjectFramer] and
+/// match each command with its reply through a serial send queue.
+class AtTransport {
+  final BluetoothCharacteristic commandRx;
+  final BluetoothCharacteristic responseTx;
+  final BluetoothCharacteristic fileData;
+  final MtuManager mtu;
+
+  AtTransport({
+    required this.commandRx,
+    required this.responseTx,
+    required this.fileData,
+    required this.mtu,
+  });
+
+  /// Raw notify bytes on the response characteristic (chunked JSON).
+  Stream<List<int>> get responseNotifyBytes => responseTx.onValueReceived;
+
+  /// Raw notify bytes on the file-data characteristic.
+  Stream<List<int>> get fileDataBytes => fileData.onValueReceived;
+
+  /// Broadcast stream of complete JSON objects parsed from notify traffic.
+  ///
+  /// Broadcast because the SDK has both long-lived listeners (UI / state) and
+  /// short-lived per-command waiters; a single-subscription stream would throw
+  /// `Bad state: Stream has already been listened to.`.
+  late final Stream<Map<String, dynamic>> _jsonStream =
+      _buildJsonStream().asBroadcastStream();
+
+  Stream<Map<String, dynamic>> get jsonMessages => _jsonStream;
+
+  final _SerialQueue _sendQueue = _SerialQueue();
+
+  /// Send a single AT command and await its JSON reply.
+  ///
+  /// Commands are serialised; concurrent callers are queued. The reply
+  /// matcher disambiguates AT+STOP, AT+START and AT+DOWNLOAD where the
+  /// firmware may interleave `state_change` or `AT+GSTAT` notifies.
+  Future<Map<String, dynamic>> send(
+    String atCommand, {
+    Duration timeout = const Duration(seconds: 5),
+    bool withoutResponse = false,
+    Duration interChunkDelay = const Duration(milliseconds: 16),
+  }) {
+    return _sendQueue.run(() async {
+      final completer = Completer<Map<String, dynamic>>();
+      late final StreamSubscription<Map<String, dynamic>> sub;
+
+      // AT+STOP: firmware may emit `state_change` first, then a separate
+      // message with `session`. Using the wrong message as the STOP reply
+      // causes "Session not found" on the subsequent AT+DOWNLOAD.
+      final waitForSession = atCommand.toUpperCase().startsWith('AT+STOP');
+
+      // AT+START: firmware may notify AT+GSTAT while START is still being
+      // processed — the first JSON on the wire could be GSTAT, not the
+      // START ack.
+      final waitForStartAck = atCommand.toUpperCase().startsWith('AT+START');
+
+      // AT+DOWNLOAD ack can be preceded/followed by GSTAT on the same notify
+      // stream; taking an "IDLE" GSTAT as the download reply causes timeouts
+      // and wrong progress.
+      final waitForDownloadAck =
+          atCommand.toUpperCase().startsWith('AT+DOWNLOAD');
+
+      sub = jsonMessages.listen((m) {
+        // Binary / garbage on the response notify characteristic
+        // (iOS stack quirks or mis-routed packets) shows up as
+        // `ok:false + JSON decode failed`. Must not complete send().
+        if (_isSyntheticFramerFailure(m)) return;
+        // Push notifications (`event:"state"`, `event:"mark"`, etc.) are
+        // NEVER an AT-command reply — even though `event:"state"` carries a
+        // `session` id that superficially looks like an AT+STOP ack.
+        //
+        // The previous heuristic ("accept event when it has session, on
+        // STOP") fired on the device's own IDLE push that the firmware
+        // emits right before the real STOP ack, so `at.send('AT+STOP')`
+        // returned a payload with `ok:null` / no `data.frames`, and the
+        // App treated stop as failed. UX symptom: "停止失败" toast right
+        // after stop, and the post-stop transfer pipeline launched with
+        // `sizeBytes=0`. See log line "stopRecording: AT+STOP reply
+        // ok=null keys=[event, state, session, duration]" — the matched
+        // payload was the IDLE event, not the ack.
+        //
+        // A real ack always carries `ok` (true/false) and no `event` field;
+        // require that to disambiguate.
+        if (_isEventMessage(m)) return;
+        if (waitForSession && !_hasSession(m) && !_isStopFailureReply(m)) {
+          return;
+        }
+        if (waitForSession &&
+            m['ok'] == true &&
+            _hasSession(m) &&
+            !isStopAckShape(m)) {
+          return;
+        }
+        if (waitForStartAck && _isGstatCommandReply(m)) return;
+        if (waitForDownloadAck && looksLikeGstatOkReply(m)) return;
+        if (!completer.isCompleted) completer.complete(m);
+        sub.cancel();
+      }, onError: (Object e, StackTrace st) {
+        if (!completer.isCompleted) completer.completeError(e, st);
+        sub.cancel();
+      });
+
+      try {
+        await _writeCommand(
+          atCommand,
+          withoutResponse: withoutResponse,
+          interChunkDelay: interChunkDelay,
+        );
+        return await completer.future.timeout(timeout, onTimeout: () {
+          throw TimeoutException('AT command timeout: $atCommand', timeout);
+        });
+      } finally {
+        // Safe even if already cancelled.
+        unawaited(sub.cancel());
+      }
+    });
+  }
+
+  static bool _hasSession(Map<String, dynamic> m) {
+    if ((m['session'] ?? '').toString().trim().isNotEmpty) return true;
+    final data = m['data'];
+    if (data is Map && (data['session'] ?? '').toString().trim().isNotEmpty) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Distinguish a real AT+STOP ack from stray AT+GSTAT notifies — both may
+  /// include `data.session`. Without this, the STOP waiter completes early on
+  /// GSTAT and `stopRecording` parses the wrong payload / times out.
+  static bool isStopAckShape(Map<String, dynamic> m) {
+    if (m['ok'] == false) return true;
+    final data = m['data'];
+    if (data is! Map) return false;
+    final d = Map<String, dynamic>.from(data);
+    if (d.containsKey('frames') ||
+        d.containsKey('file_count') ||
+        d.containsKey('total_size')) {
+      return true;
+    }
+    final cmd = (m['cmd'] ?? d['cmd'] ?? '').toString().toUpperCase();
+    if (cmd == 'STOP') return true;
+    // GSTAT payloads almost always include `state`; a typical STOP result
+    // does not.
+    if (!d.containsKey('state') && _hasSession(m)) return true;
+    return false;
+  }
+
+  /// On STOP failure firmware may return `ok:false` with no `session`
+  /// (e.g. "No active session"). The session waiter would then time out and
+  /// look like stop did nothing.
+  static bool _isStopFailureReply(Map<String, dynamic> m) => m['ok'] == false;
+
+  /// True when this notify is the JSON for an AT+GSTAT response
+  /// (not an AT+START ack).
+  static bool _isGstatCommandReply(Map<String, dynamic> m) {
+    final c = _responseCmdTag(m);
+    return c == 'GSTAT';
+  }
+
+  static String? _responseCmdTag(Map<String, dynamic> m) {
+    final c = (m['cmd'] ?? '').toString().trim().toUpperCase();
+    if (c.isNotEmpty) return c;
+    final data = m['data'];
+    if (data is Map) {
+      final dc = (data['cmd'] ?? '').toString().trim().toUpperCase();
+      if (dc.isNotEmpty) return dc;
+    }
+    return null;
+  }
+
+  static bool _isEventMessage(Map<String, dynamic> m) {
+    if (m['event'] != null) return true;
+    final data = m['data'];
+    if (data is Map && (data['event'] != null)) return true;
+    return false;
+  }
+
+  /// [jsonMessages] yields these when notify bytes are not valid JSON
+  /// (e.g. a file payload leaked onto the response characteristic).
+  /// They are not firmware AT replies.
+  static bool _isSyntheticFramerFailure(Map<String, dynamic> m) {
+    if (m['ok'] != false) return false;
+    final err = (m['error'] ?? '').toString();
+    return err == 'JSON decode failed' || err.startsWith('Invalid JSON root');
+  }
+
+  /// True when [m] is a successful JSON blob that matches an AT+GSTAT reply
+  /// (by `cmd` or common fields). Used by higher layers to sync UI state
+  /// from notify traffic without issuing an explicit AT+GSTAT.
+  static bool looksLikeGstatOkReply(Map<String, dynamic> m) {
+    if (_isEventMessage(m)) return false;
+    if (m['ok'] != true) return false;
+    if (_isGstatCommandReply(m)) return true;
+    final data = m['data'];
+    if (data is! Map) return false;
+    final d = Map<String, dynamic>.from(data);
+    if ((d['state'] ?? '').toString().trim().isEmpty) return false;
+    if (d.containsKey('battery') ||
+        d.containsKey('free_space') ||
+        d.containsKey('bitrate') ||
+        d.containsKey('charging')) {
+      return true;
+    }
+    return d.containsKey('recording') &&
+        (d.containsKey('session') || d.containsKey('duration'));
+  }
+
+  Future<void> _writeCommand(
+    String at, {
+    required bool withoutResponse,
+    required Duration interChunkDelay,
+  }) async {
+    // Prefer WRITE_WITHOUT_RESPONSE automatically when the characteristic
+    // only supports that mode, to avoid "WRITE property is not supported".
+    var useWithoutResponse = withoutResponse;
+    final props = commandRx.properties;
+    if (!useWithoutResponse && !props.write && props.writeWithoutResponse) {
+      useWithoutResponse = true;
+    }
+
+    final bytes = utf8.encode(at);
+    final payload = mtu.payloadSize;
+
+    if (bytes.length <= payload) {
+      await commandRx.write(bytes, withoutResponse: useWithoutResponse);
+      return;
+    }
+
+    // Try long write first (platform / device dependent).
+    try {
+      await commandRx.write(
+        bytes,
+        withoutResponse: useWithoutResponse,
+        allowLongWrite: true,
+      );
+      return;
+    } catch (e, st) {
+      SdkLog.w('allowLongWrite failed, fallback to chunking', e, st);
+    }
+
+    // Fallback: MTU-aware chunked writes (firmware must reassemble).
+    final chunkSize = max(1, min(payload, 512));
+    final total = (bytes.length / chunkSize).ceil();
+    for (var i = 0; i < bytes.length; i += chunkSize) {
+      final end = min(i + chunkSize, bytes.length);
+      final chunk = bytes.sublist(i, end);
+      await commandRx.write(chunk, withoutResponse: useWithoutResponse);
+      if (end < bytes.length) {
+        await Future<void>.delayed(interChunkDelay);
+      }
+      SdkLog.d(
+        'AT chunk ${(i ~/ chunkSize) + 1}/$total (${chunk.length} bytes)',
+      );
+    }
+  }
+
+  Stream<Map<String, dynamic>> _buildJsonStream() async* {
+    final framer = _JsonObjectFramer();
+
+    await for (final bytes in responseNotifyBytes) {
+      final text = _decodeBestEffort(bytes);
+      for (final jsonText in framer.feed(text)) {
+        final obj = _tryDecodeJsonText(jsonText);
+        if (obj is Map<String, dynamic>) {
+          yield obj;
+        } else if (obj != null) {
+          yield <String, dynamic>{
+            'ok': false,
+            'error': 'Invalid JSON root (not object)',
+            'raw': obj,
+          };
+        } else {
+          yield <String, dynamic>{
+            'ok': false,
+            'error': 'JSON decode failed',
+            'raw': jsonText,
+          };
+        }
+      }
+    }
+  }
+
+  /// Decode one JSON object. Some iOS / BLE corruption truncates the numeric
+  /// `"bytes"` field; attempt a one-shot repair when the first parse fails.
+  static dynamic _tryDecodeJsonText(String jsonText) {
+    try {
+      return jsonDecode(jsonText);
+    } catch (_) {
+      final repaired = _repairCorruptedBytesField(jsonText);
+      if (repaired == jsonText) return null;
+      try {
+        return jsonDecode(repaired);
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  /// Replace an invalid `"bytes": <garbage>` with `"bytes": 0` so progress /
+  /// DOWNLOAD payloads still parse (firmware may resend the size via LIST or
+  /// FILE_START anyway).
+  static String _repairCorruptedBytesField(String jsonText) {
+    return jsonText.replaceFirstMapped(
+      RegExp(r'"bytes"\s*:\s*([^,}]+)'),
+      (Match m) {
+        final rawVal = m.group(1)!.trim();
+        if (rawVal.isEmpty) return '"bytes":0';
+        if (int.tryParse(rawVal) != null) return m.group(0)!;
+        if (rawVal == 'null') return m.group(0)!;
+        return '"bytes":0';
+      },
+    );
+  }
+
+  static String _decodeBestEffort(List<int> data) {
+    try {
+      return utf8.decode(data, allowMalformed: true);
+    } catch (_) {
+      return data.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
+    }
+  }
+}
+
+/// Extract complete JSON objects (`{...}`) from a potentially chunked stream.
+class _JsonObjectFramer {
+  String _buf = '';
+
+  Iterable<String> feed(String chunk) sync* {
+    if (chunk.isEmpty) return;
+    _buf += chunk;
+
+    while (true) {
+      final start = _buf.indexOf('{');
+      if (start == -1) {
+        // No object start; avoid unbounded growth.
+        if (_buf.length > 4096) _buf = _buf.substring(_buf.length - 1024);
+        return;
+      }
+      if (start > 0) {
+        _buf = _buf.substring(start);
+      }
+
+      final end = _findJsonObjectEnd(_buf);
+      if (end == null) return; // need more data
+
+      final obj = _buf.substring(0, end);
+      _buf = _buf.substring(end);
+      final trimmed = obj.trim();
+      if (trimmed.isNotEmpty) yield trimmed;
+    }
+  }
+
+  /// End index (exclusive) of the first complete JSON object, or `null` if
+  /// the buffer is still incomplete.
+  int? _findJsonObjectEnd(String s) {
+    var depth = 0;
+    var inString = false;
+    var escaped = false;
+
+    for (var i = 0; i < s.length; i++) {
+      final ch = s.codeUnitAt(i);
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (ch == 0x5C /* \ */) {
+          escaped = true;
+          continue;
+        }
+        if (ch == 0x22 /* " */) {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (ch == 0x22 /* " */) {
+        inString = true;
+        continue;
+      }
+
+      if (ch == 0x7B /* { */) {
+        depth++;
+        continue;
+      }
+      if (ch == 0x7D /* } */) {
+        depth--;
+        if (depth == 0) return i + 1;
+      }
+    }
+    return null;
+  }
+}
+
+/// Serialise async tasks so AT commands never overlap on the wire.
+class _SerialQueue {
+  Future<void> _tail = Future<void>.value();
+
+  Future<T> run<T>(Future<T> Function() task) {
+    final completer = Completer<T>();
+    _tail = _tail.then((_) async {
+      try {
+        completer.complete(await task());
+      } catch (e, st) {
+        completer.completeError(e, st);
+      }
+    });
+    return completer.future;
+  }
+}
