@@ -43,8 +43,12 @@ Initial preview release, extracted from the SenseCraft Voice reference app.
   heuristics, CRC-32, and `DeviceStatus` parsing.
 - GitHub Actions CI (`flutter analyze` + `flutter test`).
 - English host-app integration guide (`INTEGRATION.md`).
+- `WifiFastSyncSession` — one-call WiFi fast sync (AP enable + phone join +
+  UDP download + cleanup).
+- Example app: BLE download, WiFi fast sync, and OTA demos.
 
 ### Changed
 - Extracted `JsonObjectFramer` from `AtTransport` for testability.
 - README platform setup documents WiFi fast-sync permissions (Android + iOS).
-- Example README lists `RecordingSession` demo steps.
+- Example README lists full demo flow (record / list / download / WiFi / OTA).
+- SenseCraft Voice app firmware page uses SDK `OtaSession` instead of raw mcumgr.

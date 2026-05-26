@@ -144,6 +144,7 @@ Future<void> main() async {
 | Session | `DownloadEvent` (sealed) | Stream events during `AT+DOWNLOAD` |
 | OTA | `OtaFirmwareProcessor` | Parse `.zip` / `.bin` into mcumgr images |
 | OTA | `OtaSession` | High-level OTA upgrade with normalised phases and aggregated progress |
+| WiFi | `WifiFastSyncSession` | One-call BLE AP + phone join + UDP download |
 | WiFi | `WifiHotspotConnector` | Enable device AP + join from phone (Android/iOS) |
 | WiFi | `WifiTransferClient` + `ClipUdpSyncClient` | UDP file sync over device AP |
 | Models | `Device`, `DeviceFileMeta`, `WifiHotspotInfo`, `RecordingMode` | Data models |
@@ -217,8 +218,6 @@ Key UUIDs:
 
 - **0.2** — Unit / integration tests; deeper retry & CRC resync in
   `RecordingSession.download`; migrate Android WiFi scan to `wifi_scan` plugin.
-- **0.3** — End-to-end "WiFi fast sync" helper that orchestrates BLE +
-  `AT+WIFI=ON` + phone-join + UDP transfer in one call.
 - **1.0** — API freeze + parity ports to Swift / Kotlin / Python SDKs.
 
 ## License

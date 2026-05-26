@@ -68,7 +68,8 @@ dependencies:
 - [ ] SdkLog.bind wired (optional, helps debugging)
 - [ ] Minimal path works: scan → connect → AtTransport → RecordingSession
 - [ ] OTA: OtaFirmwareProcessor + mcumgr, or OtaSession high-level wrapper
-- [ ] WiFi fast sync: WifiHotspotConnector.enable → WifiTransferClient.downloadSession
+- [ ] WiFi fast sync: `WifiFastSyncSession.downloadSession(...)` or manual
+      `WifiHotspotConnector.enable → WifiTransferClient.downloadSession`
 - [ ] Update docs/DEVICE_BLE_PROTOCOL.md when device protocol behaviour changes
 ```
 

@@ -41,6 +41,7 @@ export 'src/ota/firmware_processor.dart';
 export 'src/ota/ota_session.dart';
 
 // WiFi hotspot high-speed transfer
+export 'src/wifi/fast_sync_session.dart';
 export 'src/wifi/hotspot_connector.dart';
 export 'src/wifi/transfer_client.dart';
 export 'src/wifi/udp_sync_client.dart';
