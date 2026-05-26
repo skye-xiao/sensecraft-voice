@@ -248,11 +248,7 @@ class OtaSession {
   /// [OtaPhase.cancelled] entry; [upgrade] returns `false`.
   Future<void> cancel() async {
     _cancelled = true;
-    try {
-      await _manager?.kill();
-    } catch (e, st) {
-      SdkLog.w('OtaSession: manager.kill failed', e, st);
-    }
+    await _releaseManager();
   }
 
   Future<void> _cleanup() async {
@@ -260,7 +256,20 @@ class OtaSession {
     await _stateSub?.cancel();
     _progressSub = null;
     _stateSub = null;
+    await _releaseManager();
+  }
+
+  /// Release the native mcumgr manager so a subsequent OTA on the same device
+  /// does not fail with `updateManagerExists`.
+  Future<void> _releaseManager() async {
+    final manager = _manager;
     _manager = null;
+    if (manager == null) return;
+    try {
+      await manager.kill();
+    } catch (e, st) {
+      SdkLog.w('OtaSession: manager.kill failed', e, st);
+    }
   }
 
   /// Closes the event stream. Call after the consumer is done listening.
