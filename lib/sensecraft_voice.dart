@@ -30,6 +30,7 @@ library;
 export 'src/ble/ble_client.dart';
 export 'src/ble/ble_permissions.dart';
 export 'src/ble/ble_uuids.dart';
+export 'src/ble/ble_transfer_frame_handler.dart';
 export 'src/ble/clip_file_data.dart';
 export 'src/ble/mtu_manager.dart';
 
@@ -57,6 +58,7 @@ export 'src/models/device_file_meta.dart';
 export 'src/models/wifi_hotspot_info.dart';
 
 // Utilities
+export 'src/utils/crc32.dart';
 export 'src/utils/sdk_log.dart';
 
 // Re-export the `Guid`, `ScanResult`, `BluetoothDevice` types the SDK exposes
