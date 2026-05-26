@@ -4,7 +4,7 @@ description: >-
   over BLE, send AT commands, receive recording files, and run OTA firmware
   updates. UI- and backend-agnostic.
 version: 0.1.0
-homepage: https://github.com/Seeed-Studio/sensecraft-voice-sdk
+homepage: https://github.com/skye-xiao/sensecraft-voice-sdk
 publish_to: 'none' # Set to omit `publish_to` when publishing to pub.dev.
 
 environment:

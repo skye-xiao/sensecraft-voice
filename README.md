@@ -23,7 +23,7 @@ dependencies:
     path: ../sensecraft-voice-sdk
     # CI / release (after pushing to GitHub):
     # git:
-    #   url: https://github.com/Seeed-Studio/sensecraft-voice-sdk.git
+    #   url: https://github.com/skye-xiao/sensecraft-voice-sdk.git
     #   ref: v0.1.0
 ```
 
