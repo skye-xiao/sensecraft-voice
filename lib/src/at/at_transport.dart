@@ -6,6 +6,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import '../ble/mtu_manager.dart';
 import '../utils/sdk_log.dart';
+import 'json_object_framer.dart';
 
 /// AT(JSON) protocol transport over BLE (GATT) for SenseCraft Voice Clip
 /// devices.
@@ -277,7 +278,7 @@ class AtTransport {
   }
 
   Stream<Map<String, dynamic>> _buildJsonStream() async* {
-    final framer = _JsonObjectFramer();
+    final framer = JsonObjectFramer();
 
     await for (final bytes in responseNotifyBytes) {
       final text = _decodeBestEffort(bytes);
@@ -340,78 +341,6 @@ class AtTransport {
     } catch (_) {
       return data.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
     }
-  }
-}
-
-/// Extract complete JSON objects (`{...}`) from a potentially chunked stream.
-class _JsonObjectFramer {
-  String _buf = '';
-
-  Iterable<String> feed(String chunk) sync* {
-    if (chunk.isEmpty) return;
-    _buf += chunk;
-
-    while (true) {
-      final start = _buf.indexOf('{');
-      if (start == -1) {
-        // No object start; avoid unbounded growth.
-        if (_buf.length > 4096) _buf = _buf.substring(_buf.length - 1024);
-        return;
-      }
-      if (start > 0) {
-        _buf = _buf.substring(start);
-      }
-
-      final end = _findJsonObjectEnd(_buf);
-      if (end == null) return; // need more data
-
-      final obj = _buf.substring(0, end);
-      _buf = _buf.substring(end);
-      final trimmed = obj.trim();
-      if (trimmed.isNotEmpty) yield trimmed;
-    }
-  }
-
-  /// End index (exclusive) of the first complete JSON object, or `null` if
-  /// the buffer is still incomplete.
-  int? _findJsonObjectEnd(String s) {
-    var depth = 0;
-    var inString = false;
-    var escaped = false;
-
-    for (var i = 0; i < s.length; i++) {
-      final ch = s.codeUnitAt(i);
-
-      if (inString) {
-        if (escaped) {
-          escaped = false;
-          continue;
-        }
-        if (ch == 0x5C /* \ */) {
-          escaped = true;
-          continue;
-        }
-        if (ch == 0x22 /* " */) {
-          inString = false;
-        }
-        continue;
-      }
-
-      if (ch == 0x22 /* " */) {
-        inString = true;
-        continue;
-      }
-
-      if (ch == 0x7B /* { */) {
-        depth++;
-        continue;
-      }
-      if (ch == 0x7D /* } */) {
-        depth--;
-        if (depth == 0) return i + 1;
-      }
-    }
-    return null;
   }
 }
 

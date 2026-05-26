@@ -50,6 +50,14 @@ declare the matching permissions.
 <!-- Required for scanning on Android < 12 / some OEMs -->
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
     android:maxSdkVersion="30" />
+<!-- Required for WiFi fast sync (join device AP) -->
+<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+<uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
+    android:usesPermissionFlags="neverForLocation" />
 ```
 
 ### iOS
@@ -61,7 +69,17 @@ declare the matching permissions.
 <string>This app uses Bluetooth to communicate with SenseCraft Voice devices.</string>
 <key>NSBluetoothPeripheralUsageDescription</key>
 <string>This app uses Bluetooth to communicate with SenseCraft Voice devices.</string>
+<!-- Required for WiFi fast sync (join device AP, UDP transfer) -->
+<key>NSLocalNetworkUsageDescription</key>
+<string>This app connects to your SenseCraft Voice device over WiFi for faster file transfer.</string>
+<key>NSBonjourServices</key>
+<array>
+  <string>_services._dns-sd._udp</string>
+</array>
 ```
+
+For WiFi hotspot join on iOS 14+, also enable the **Local Network** capability in
+Xcode (Runner target → Signing & Capabilities).
 
 ## Quick start
 

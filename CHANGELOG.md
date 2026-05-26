@@ -35,3 +35,16 @@ Initial preview release, extracted from the SenseCraft Voice reference app.
 ### Out of scope
 
 - Cloud / ASR / LLM helpers — the SDK is backend-agnostic; bring your own cloud.
+
+## Unreleased
+
+### Added
+- Unit tests for BLE file-data parsing, JSON framer, device events, AT reply
+  heuristics, CRC-32, and `DeviceStatus` parsing.
+- GitHub Actions CI (`flutter analyze` + `flutter test`).
+- English host-app integration guide (`INTEGRATION.md`).
+
+### Changed
+- Extracted `JsonObjectFramer` from `AtTransport` for testability.
+- README platform setup documents WiFi fast-sync permissions (Android + iOS).
+- Example README lists `RecordingSession` demo steps.

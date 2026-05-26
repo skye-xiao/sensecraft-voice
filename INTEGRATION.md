@@ -1,14 +1,15 @@
-# 宿主 App 集成
+# Host App Integration
 
-> 配合 [README.md](README.md)、[docs/DEVICE_BLE_PROTOCOL.md](docs/DEVICE_BLE_PROTOCOL.md)。
-> 本 SDK 提供 **BLE / AT / OTA / WiFi / RecordingSession** 设备层能力；UI、云端、
-> 本地 DB、业务续传策略由宿主 App 自行维护。
+> See [README.md](README.md) and [docs/DEVICE_BLE_PROTOCOL.md](docs/DEVICE_BLE_PROTOCOL.md).
+> This SDK covers **BLE / AT / OTA / WiFi / RecordingSession** device-layer APIs.
+> UI, cloud backends, local DB, and product-specific transfer/resume policies
+> stay in the host app.
 
 ---
 
-## 依赖方式
+## Dependency options
 
-### 本地开发（monorepo）
+### Local development (monorepo)
 
 ```yaml
 dependencies:
@@ -16,7 +17,7 @@ dependencies:
     path: ../sensecraft-voice-sdk
 ```
 
-### CI / 发版（Git 引用）
+### CI / release (Git reference)
 
 ```yaml
 dependencies:
@@ -28,54 +29,54 @@ dependencies:
 
 ---
 
-## 宿主 App 应自行提供
+## What the host app must provide
 
-| 项 | 说明 | SenseCraft Voice App 示例 |
-|----|------|---------------------------|
-| 平台权限 | BLE、Location（Android &lt; 12）、Local Network（iOS WiFi） | `AndroidManifest.xml` / `Info.plist` |
-| 设备 UI | 扫描、连接、详情、固件升级页 | `lib/src/features/device/` |
-| 录音业务 | 多设备、后台续传、DB 索引、云端同步 | `lib/src/features/device/presentation/device_controller.dart` |
-| 云端 | ASR / LLM / 存储 — SDK **不包含** | `lib/src/core/server/` |
-| 日志桥接 | 可选 `SdkLog.bind(...)` 转发到 App logger | `lib/src/bootstrap.dart` |
-
----
-
-## SDK 层 vs 产品层
-
-| 层级 | 范围 | 本 SDK |
-|------|------|--------|
-| 设备协议 | BLE GATT、AT(JSON)、UDP 快传、OTA | ✅ |
-| 高层会话 | `RecordingSession` start/stop/list/download | ✅ |
-| 产品业务 | 录音列表 DB、Portal JWT、转写流程 | ❌ |
+| Item | Description | SenseCraft Voice app example |
+|------|-------------|------------------------------|
+| Platform permissions | BLE, Location (Android &lt; 12), Local Network (iOS WiFi) | `AndroidManifest.xml` / `Info.plist` |
+| Device UI | Scan, connect, details, firmware update | `lib/src/features/device/` |
+| Recording business | Multi-device, background resume, DB index, cloud sync | `device_controller.dart` |
+| Cloud | ASR / LLM / storage — **not in SDK** | `lib/src/core/server/` |
+| Log bridge | Optional `SdkLog.bind(...)` to your logger | `lib/src/bootstrap.dart` |
 
 ---
 
-## 已知宿主 App
+## SDK layer vs product layer
 
-| App | 包名 / Bundle ID | SDK 依赖 | 业务文档 |
-|-----|------------------|----------|----------|
-| SenseCraft Voice | `cc.seeed.voice` | `path: ../sensecraft-voice-sdk` | 宿主仓库 `docs/RECORDING_FLOW.md` |
+| Layer | Scope | This SDK |
+|-------|-------|----------|
+| Device protocol | BLE GATT, AT(JSON), UDP fast sync, OTA | Yes |
+| High-level session | `RecordingSession` start/stop/list/download | Yes |
+| Product business | Recording DB, Portal JWT, transcription flow | No |
 
 ---
 
-## 集成自检清单
+## Known host apps
+
+| App | Package / Bundle ID | SDK dependency | Business docs |
+|-----|---------------------|----------------|---------------|
+| SenseCraft Voice | `cc.seeed.voice` | `path: ../sensecraft-voice-sdk` | Host repo `docs/RECORDING_FLOW.md` |
+
+---
+
+## Integration checklist
 
 ```
-- [ ] pubspec 引用 sensecraft_voice（path 或 git ref）
-- [ ] Android：BLUETOOTH_SCAN / CONNECT / ADVERTISE；Android < 12 需 ACCESS_FINE_LOCATION
-- [ ] iOS：NSBluetoothAlwaysUsageDescription；WiFi 快传需 Local Network 描述
-- [ ] SdkLog.bind 已接入（可选，便于联调）
-- [ ] 扫描 → connect → AtTransport → RecordingSession 最小链路可跑通
-- [ ] OTA：使用 OtaFirmwareProcessor + mcumgr，或 OtaSession 高层封装
-- [ ] WiFi 快传：WifiHotspotConnector.enable → WifiTransferClient.downloadSession
-- [ ] 改设备协议行为时同步更新 docs/DEVICE_BLE_PROTOCOL.md
+- [ ] pubspec references sensecraft_voice (path or git ref)
+- [ ] Android: BLUETOOTH_SCAN / CONNECT / ADVERTISE; ACCESS_FINE_LOCATION on Android < 12
+- [ ] iOS: NSBluetoothAlwaysUsageDescription; Local Network usage for WiFi fast sync
+- [ ] SdkLog.bind wired (optional, helps debugging)
+- [ ] Minimal path works: scan → connect → AtTransport → RecordingSession
+- [ ] OTA: OtaFirmwareProcessor + mcumgr, or OtaSession high-level wrapper
+- [ ] WiFi fast sync: WifiHotspotConnector.enable → WifiTransferClient.downloadSession
+- [ ] Update docs/DEVICE_BLE_PROTOCOL.md when device protocol behaviour changes
 ```
 
 ---
 
-## Agent 接到任务时读什么
+## What to read when integrating
 
 ```
-1. sensecraft-voice-sdk — 协议、公共 API、INTEGRATION.md
-2. 宿主 App 仓库 — UI、DB、云端、业务续传策略
+1. sensecraft-voice-sdk — protocol, public API, INTEGRATION.md
+2. Host app repo — UI, DB, cloud, business transfer/resume logic
 ```
