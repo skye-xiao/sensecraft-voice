@@ -47,6 +47,22 @@ class SenseCraftVoiceClient {
   /// Whether the stack is currently scanning.
   Stream<bool> get isScanning => FlutterBluePlus.isScanning;
 
+  /// Phone Bluetooth adapter state (on / off / turningOn / …).
+  Stream<BluetoothAdapterState> get adapterState =>
+      FlutterBluePlus.adapterState;
+
+  /// Android only: show the system dialog to turn Bluetooth on.
+  Future<void> turnOnAdapter() => FlutterBluePlus.turnOn();
+
+  /// Latest adapter state (waits briefly if the stack still reports [BluetoothAdapterState.unknown]).
+  Future<BluetoothAdapterState> getCurrentAdapterState() async {
+    try {
+      return await adapterState.first.timeout(const Duration(seconds: 2));
+    } catch (_) {
+      return BluetoothAdapterState.unknown;
+    }
+  }
+
   /// Start a BLE scan.
   ///
   /// When [filterByService] is `true` (default), the scan filters by the

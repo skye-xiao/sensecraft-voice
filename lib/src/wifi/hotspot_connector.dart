@@ -273,6 +273,7 @@ class WifiHotspotConnector {
             : Platform.operatingSystem;
     SdkLog.i('[WiFi] Phone → join AP "${info.ssid}" ($os)');
     try {
+      await _silentlyDisconnectCurrentWifiBeforeJoin();
       if (Platform.isAndroid) {
         final ok = await _connectAndroid(info);
         if (ok) {
@@ -547,6 +548,26 @@ class WifiHotspotConnector {
   }
 
   // -- wifi_iot plugin wrappers --
+
+  /// Drop the phone's current Wi‑Fi association before joining the device AP.
+  /// Best-effort, no UI; failures are logged and ignored.
+  Future<void> _silentlyDisconnectCurrentWifiBeforeJoin() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    try {
+      String? ssidBefore;
+      try {
+        ssidBefore = await WiFiForIoTPlugin.getSSID();
+      } catch (_) {}
+      SdkLog.i(
+        '[WiFi] pre-join: silently disconnect current Wi‑Fi (ssid=$ssidBefore)',
+      );
+      await _wifiIotForceWifiUsage(false);
+      await _wifiIotDisconnect();
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    } catch (e, st) {
+      SdkLog.w('[WiFi] pre-join disconnect failed (non-fatal)', e, st);
+    }
+  }
 
   Future<bool> _wifiIotConnect({
     required String ssid,
