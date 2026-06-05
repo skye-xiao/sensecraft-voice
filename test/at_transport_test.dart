@@ -28,6 +28,24 @@ void main() {
       expect(AtTransport.isStopAckShape({'ok': false}), isTrue);
     });
 
+    test('looksLikeGstatOkReply matches payloads PAUSE/RESUME must ignore', () {
+      final gstatWhileRecording = {
+        'ok': true,
+        'data': {
+          'state': 'recording',
+          'battery': 88,
+          'recording': true,
+          'session': '20260203100000',
+        },
+      };
+      expect(AtTransport.looksLikeGstatOkReply(gstatWhileRecording), isTrue);
+      // Real AT+PAUSE ack is typically {"ok": true} without GSTAT fields.
+      expect(
+        AtTransport.looksLikeGstatOkReply({'ok': true}),
+        isFalse,
+      );
+    });
+
     test('looksLikeGstatOkReply detects GSTAT-shaped payloads', () {
       expect(
         AtTransport.looksLikeGstatOkReply({

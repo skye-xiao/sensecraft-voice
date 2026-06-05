@@ -82,6 +82,13 @@ class AtTransport {
       final waitForDownloadAck =
           atCommand.toUpperCase().startsWith('AT+DOWNLOAD');
 
+      // AT+PAUSE / AT+RESUME: iOS BLE often delivers a stale AT+GSTAT notify
+      // (`ok:true`, `data.state: recording`) before the real pause/resume ack.
+      // Treating that as success made the App show "paused" while the device
+      // kept capturing for several more seconds (Android timing usually hid it).
+      final waitForPauseAck = atCommand.toUpperCase().startsWith('AT+PAUSE');
+      final waitForResumeAck = atCommand.toUpperCase().startsWith('AT+RESUME');
+
       sub = jsonMessages.listen((m) {
         // Binary / garbage on the response notify characteristic
         // (iOS stack quirks or mis-routed packets) shows up as
@@ -115,6 +122,8 @@ class AtTransport {
         }
         if (waitForStartAck && _isGstatCommandReply(m)) return;
         if (waitForDownloadAck && looksLikeGstatOkReply(m)) return;
+        if (waitForPauseAck && looksLikeGstatOkReply(m)) return;
+        if (waitForResumeAck && looksLikeGstatOkReply(m)) return;
         if (!completer.isCompleted) completer.complete(m);
         sub.cancel();
       }, onError: (Object e, StackTrace st) {
