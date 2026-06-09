@@ -52,11 +52,13 @@ final class BleTransferFrameData extends BleTransferFrameResult {
   final Uint8List payload;
   final bool duplicateSeq;
   final bool seqJump;
+  final bool orphanBeforeFileStart;
   const BleTransferFrameData({
     required this.seq,
     required this.payload,
     required this.duplicateSeq,
     required this.seqJump,
+    this.orphanBeforeFileStart = false,
   });
 }
 
@@ -179,7 +181,9 @@ class BleTransferFrameHandler {
     }
 
     if (parsed is ClipParsedData) {
+      var orphanBeforeFileStart = false;
       if (state.currentFilename == null) {
+        orphanBeforeFileStart = true;
         final guess = orphanFilenameBeforeFileStart(
           effectiveStartFile: effectiveStartFile,
           fileCompleteCount: state.fileCompleteCount,
@@ -199,6 +203,7 @@ class BleTransferFrameHandler {
             payload: parsed.payload,
             duplicateSeq: true,
             seqJump: false,
+            orphanBeforeFileStart: orphanBeforeFileStart,
           );
         }
         seqJump = true;
@@ -216,6 +221,7 @@ class BleTransferFrameHandler {
         payload: parsed.payload,
         duplicateSeq: duplicateSeq,
         seqJump: seqJump,
+        orphanBeforeFileStart: orphanBeforeFileStart,
       );
     }
 

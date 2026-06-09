@@ -5,12 +5,14 @@ sealed class TransferJsonEvent {
 
 final class TransferJsonFileComplete extends TransferJsonEvent {
   final String filename;
-  const TransferJsonFileComplete(this.filename);
+  final String sessionId;
+  const TransferJsonFileComplete(this.filename, {this.sessionId = ''});
 }
 
 final class TransferJsonTransferComplete extends TransferJsonEvent {
   final int files;
-  const TransferJsonTransferComplete(this.files);
+  final String sessionId;
+  const TransferJsonTransferComplete(this.files, {this.sessionId = ''});
 }
 
 final class TransferJsonOther extends TransferJsonEvent {
@@ -37,15 +39,22 @@ class TransferJsonEventParser {
         : const <String, dynamic>{};
     final event = (msg['event'] ?? dataMap['event'] ?? '').toString();
     if (event.isEmpty) return null;
+    final sessionId = (msg['session'] ??
+            msg['session_id'] ??
+            dataMap['session'] ??
+            dataMap['session_id'] ??
+            '')
+        .toString()
+        .trim();
 
     switch (event) {
       case 'file_complete':
         final filename =
             (msg['filename'] ?? dataMap['filename'] ?? '').toString();
-        return TransferJsonFileComplete(filename);
+        return TransferJsonFileComplete(filename, sessionId: sessionId);
       case 'transfer_complete':
         final files = parseInt(msg['files'] ?? dataMap['files']) ?? 0;
-        return TransferJsonTransferComplete(files);
+        return TransferJsonTransferComplete(files, sessionId: sessionId);
       default:
         return TransferJsonOther(event);
     }

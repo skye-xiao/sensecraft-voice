@@ -50,10 +50,26 @@ void main() {
     test('parses transfer_complete files', () {
       final ev = TransferJsonEventParser.parse({
         'event': 'transfer_complete',
+        'session': '20260609043628',
         'files': '3',
       });
       expect(ev, isA<TransferJsonTransferComplete>());
-      expect((ev! as TransferJsonTransferComplete).files, 3);
+      final transferComplete = ev! as TransferJsonTransferComplete;
+      expect(transferComplete.files, 3);
+      expect(transferComplete.sessionId, '20260609043628');
+    });
+
+    test('parses wrapped file_complete session', () {
+      final ev = TransferJsonEventParser.parse({
+        'ok': true,
+        'data': {
+          'event': 'file_complete',
+          'session_id': '20260609044303',
+          'filename': '0002.opus',
+        },
+      });
+      expect(ev, isA<TransferJsonFileComplete>());
+      expect((ev! as TransferJsonFileComplete).sessionId, '20260609044303');
     });
   });
 }
