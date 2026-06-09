@@ -86,22 +86,36 @@ class WifiHotspotConnector {
 
     SdkLog.i('[WiFi] BLE → AT+WIFI=ON (enable device AP)');
     var resp = await _sendWifiOnPair();
-    if (resp['ok'] != true) {
+    // A timeout is "no BLE ack yet", NOT a failure — the AP may still be coming
+    // up. Only an explicit `ok:false` from the firmware (e.g. "Failed to start
+    // WiFi AP" / "Cannot start WiFi in current state") counts as a real failure.
+    var onTimedOut = resp['__timeout'] == true;
+    if (resp['ok'] != true && !onTimedOut) {
       final m = _atWifiFailureDetail(resp);
-      SdkLog.w('[WiFi] first ON attempt not ok: $m');
+      SdkLog.w('[WiFi] first ON attempt not ok (explicit): $m');
       if (_wifiOnFailureMayBeStaleState(m)) {
         SdkLog.i('[WiFi] trying recovery: OFF + wait GSTAT≠WIFI_SYNC, then ON again');
         await _turnOffDeviceWifiAp();
         await _waitGstatLeavesWifiSync(const Duration(seconds: 22));
         resp = await _sendWifiOnPair();
+        onTimedOut = resp['__timeout'] == true;
       }
     }
-    if (resp['ok'] != true) {
+    if (resp['ok'] != true && !onTimedOut) {
       final m = _atWifiFailureDetail(resp);
-      SdkLog.e('[WiFi] AT+WIFI=ON failed after recovery: $m');
+      SdkLog.e('[WiFi] AT+WIFI=ON failed (firmware reported): $m');
       throw StateError('AT+WIFI=ON failed: $m');
     }
+    if (onTimedOut) {
+      SdkLog.w(
+        '[WiFi] AT+WIFI=ON got no BLE ack in time — not failing; verifying '
+        'whether the AP came up via AT+WIFI?',
+      );
+    }
 
+    // On a timeout we have no usable ON payload; [_hotspotInfoAfterOn] then
+    // relies on AT+WIFI? to fetch credentials and confirm the AP is actually up.
+    // It only throws if AT+WIFI? also fails to show a valid hotspot.
     final info = await _hotspotInfoAfterOn(resp);
     SdkLog.i(
       '[WiFi] Device AP ready — ssid=${info.ssid} ip=${info.ip} port=${info.port} '
@@ -174,21 +188,46 @@ class WifiHotspotConnector {
   }
 
   /// `AT+WIFI=ON` then `AT+WIFI=on` if needed.
+  ///
+  /// A real failure is the firmware replying `{"ok":false,"msg":"Failed to start
+  /// WiFi AP"}`. A BLE *timeout* (no reply within the window) is NOT a failure on
+  /// its own: starting the AP can take a while and the firmware often de-
+  /// prioritises BLE the moment the radio switches to AP, so the ON ack can be
+  /// late or never arrive even though the AP came up. We therefore tag a
+  /// timeout-only result with `__timeout` so [enable] can verify via AT+WIFI?
+  /// instead of declaring the transfer failed prematurely.
   Future<Map<String, dynamic>> _sendWifiOnPair() async {
+    var sawTimeout = false;
     Map<String, dynamic> resp;
     try {
-      resp = await at.send('AT+WIFI=ON', timeout: const Duration(seconds: 10));
+      resp = await at.send('AT+WIFI=ON', timeout: const Duration(seconds: 12));
+    } on TimeoutException catch (e) {
+      SdkLog.w('[WiFi] AT+WIFI=ON timed out (AP may still be starting): $e');
+      sawTimeout = true;
+      resp = <String, dynamic>{'ok': false};
     } catch (e) {
       SdkLog.w('[WiFi] AT+WIFI=ON transport error: $e');
       resp = <String, dynamic>{'ok': false};
     }
     if (resp['ok'] == true) return resp;
-    SdkLog.i('[WiFi] BLE → retry AT+WIFI=on');
-    try {
-      resp = await at.send('AT+WIFI=on', timeout: const Duration(seconds: 10));
-    } catch (e) {
-      SdkLog.w('[WiFi] AT+WIFI=on transport error: $e');
-      resp = <String, dynamic>{'ok': false};
+    // Only re-issue ON when the firmware gave an explicit non-ok reply. After a
+    // timeout, re-sending can collide with an in-progress AP bringup — let the
+    // caller confirm via AT+WIFI? instead.
+    if (!sawTimeout) {
+      SdkLog.i('[WiFi] BLE → retry AT+WIFI=on');
+      try {
+        resp = await at.send('AT+WIFI=on', timeout: const Duration(seconds: 12));
+      } on TimeoutException catch (e) {
+        SdkLog.w('[WiFi] AT+WIFI=on timed out (AP may still be starting): $e');
+        sawTimeout = true;
+        resp = <String, dynamic>{'ok': false};
+      } catch (e) {
+        SdkLog.w('[WiFi] AT+WIFI=on transport error: $e');
+        resp = <String, dynamic>{'ok': false};
+      }
+    }
+    if (resp['ok'] != true && sawTimeout) {
+      return <String, dynamic>{'ok': false, '__timeout': true};
     }
     return resp;
   }
