@@ -39,6 +39,18 @@ class WifiHotspotConnector {
   /// After NEHotspot apply, wait before UDP — DHCP + iOS routing; also pairs with [forceWifiUsage] local-network prompt.
   static const Duration _iosPostConnectSettle = Duration(seconds: 5);
 
+  /// Stop the `fileData` notify flood so WiFi AT command replies are not stuck
+  /// behind inbound file bytes (same fix as AT+STOP/CANCEL on Android/iOS).
+  Future<void> _freeLinkBeforeWifiAt() async {
+    if (!Platform.isIOS && !Platform.isAndroid) return;
+    try {
+      await at.setFileDataNotify(false, timeout: const Duration(seconds: 2));
+      SdkLog.i('[WiFi] disabled fileData notify to free BLE link before WiFi AT');
+    } catch (e, st) {
+      SdkLog.w('[WiFi] disable fileData notify failed (continuing)', e, st);
+    }
+  }
+
   /// Query current WiFi hotspot status from device via BLE.
   Future<WifiHotspotInfo> queryStatus() async {
     final resp = await at.send('AT+WIFI?', timeout: const Duration(seconds: 5));
@@ -78,6 +90,7 @@ class WifiHotspotConnector {
   /// If the device replies e.g. `Cannot start WiFi in current state` while `AT+GSTAT`
   /// is `WIFI_SYNC`, we send `AT+WIFI=OFF`, wait until GSTAT leaves `WIFI_SYNC`, then retry ON.
   Future<WifiHotspotInfo> enable() async {
+    await _freeLinkBeforeWifiAt();
     final prior = await _queryStatusBeforeEnable();
     if (prior != null && prior.enabled && prior.isValid) {
       SdkLog.i('[WiFi] hotspot already on (AT+WIFI?), skip AT+WIFI=ON');
@@ -289,6 +302,7 @@ class WifiHotspotConnector {
 
   /// Disable WiFi hotspot on device via BLE.
   Future<void> disable() async {
+    await _freeLinkBeforeWifiAt();
     for (final cmd in ['AT+WIFI=OFF', 'AT+WIFI=off']) {
       try {
         final r = await at.send(cmd, timeout: const Duration(seconds: 8));
