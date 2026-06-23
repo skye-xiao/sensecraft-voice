@@ -24,6 +24,7 @@ dependencies:
   flutter_archive: ^6.0.3
   path_provider: ^2.1.5
   uuid: ^4.5.1
+  crypto: ^3.0.6
 
   # WiFi hotspot connection (AP-mode high-speed file transfer)
   wifi_iot: ^0.3.19+1

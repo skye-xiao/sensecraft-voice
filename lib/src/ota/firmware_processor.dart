@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_archive/flutter_archive.dart';
 import 'package:mcumgr_flutter/mcumgr_flutter.dart' as mcumgr;
@@ -15,8 +16,9 @@ import 'package:uuid/uuid.dart';
 /// characteristic `DA2E7828-FBCE-4E01-AE9E-261174997C48` (mcumgr / Zephyr).
 class OtaFirmwareProcessor {
   /// Parse a multi-image ZIP update. The archive must contain a `manifest.json`
-  /// of shape `{ "files": [{ "file": "...", "image_index": 0 }, ...] }`
-  /// alongside the referenced binaries.
+  /// of shape `{ "files": [{ "file": "...", "image_index": 0, "size": ... }, ...] }`
+  /// alongside the referenced binaries. When `size` (or optional hash fields) are
+  /// present, the referenced binaries are verified before OTA starts.
   static Future<List<mcumgr.Image>> processZip(Uint8List zipData) async {
     final prefix = 'firmware_${const Uuid().v4()}';
     final tempDir = await getTemporaryDirectory();
@@ -65,6 +67,11 @@ class OtaFirmwareProcessor {
           );
         }
         final data = await binFile.readAsBytes();
+        validateManifestFileEntry(
+          fileName: fileName,
+          data: data,
+          entry: map,
+        );
         images.add(mcumgr.Image(image: imageIndex, data: data));
       }
       return images;
@@ -73,6 +80,72 @@ class OtaFirmwareProcessor {
         await workDir.delete(recursive: true);
       } catch (_) {}
     }
+  }
+
+  /// Validates a manifest `files[]` entry against its binary payload.
+  ///
+  /// Supported fields (all optional except [fileName] must be non-empty):
+  /// - `size` — exact byte length
+  /// - `sha256` / `hash` — lowercase hex SHA-256 digest
+  /// - `md5` — lowercase hex MD5 digest
+  @visibleForTesting
+  static void validateManifestFileEntry({
+    required String fileName,
+    required Uint8List data,
+    required Map<String, dynamic> entry,
+  }) {
+    if (fileName.trim().isEmpty) {
+      throw const OtaFirmwareException(
+        'manifest.json entry is missing "file" name',
+      );
+    }
+
+    final expectedSize = _parseManifestInt(entry['size']);
+    if (expectedSize != null && data.length != expectedSize) {
+      throw OtaFirmwareException(
+        'Firmware binary size mismatch for $fileName: '
+        'expected $expectedSize bytes, got ${data.length}',
+      );
+    }
+
+    final expectedSha256 = _readManifestDigest(entry, const ['sha256', 'hash']);
+    if (expectedSha256 != null) {
+      final actual = sha256.convert(data).toString();
+      if (actual != expectedSha256) {
+        throw OtaFirmwareException(
+          'Firmware binary SHA-256 mismatch for $fileName',
+        );
+      }
+    }
+
+    final expectedMd5 = _readManifestDigest(entry, const ['md5']);
+    if (expectedMd5 != null) {
+      final actual = md5.convert(data).toString();
+      if (actual != expectedMd5) {
+        throw OtaFirmwareException(
+          'Firmware binary MD5 mismatch for $fileName',
+        );
+      }
+    }
+  }
+
+  static int? _parseManifestInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value >= 0 ? value : null;
+    return int.tryParse(value.toString());
+  }
+
+  static String? _readManifestDigest(
+    Map<String, dynamic> entry,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final raw = entry[key];
+      if (raw == null) continue;
+      final normalized = raw.toString().trim().toLowerCase();
+      if (normalized.isNotEmpty) return normalized;
+    }
+    return null;
   }
 
   /// Single `.bin` blob — wrapped as image index 0.

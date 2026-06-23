@@ -178,6 +178,10 @@ class SenseCraftVoiceClient {
   ) async {
     final mtuManager = MtuManager(device);
     await mtuManager.startListening();
+    // Clip firmware requires LE Secure Connections; some Android OEMs (e.g.
+    // MIUI) drop the link with GATT status 5 instead of showing the pairing
+    // dialog when we enable notify without a bond — call createBond early.
+    await _ensureAndroidBonded(device);
     // Conservative MTU: very large MTU causes link drops on some firmwares.
     await mtuManager.requestHighMtu();
 
@@ -277,6 +281,49 @@ class SenseCraftVoiceClient {
     } catch (_) {}
     await conn.device.disconnect();
   }
+}
+
+/// Android-only: ensure the Clip bond exists before encrypted GATT ops.
+///
+/// [BluetoothDevice.createBond] shows the system pairing UI when needed.
+/// Safe to call when already bonded (no-op).
+Future<void> _ensureAndroidBonded(BluetoothDevice device) async {
+  if (!Platform.isAndroid) return;
+
+  BluetoothBondState current;
+  try {
+    current = await device.bondState.first.timeout(const Duration(seconds: 3));
+  } catch (_) {
+    current = BluetoothBondState.none;
+  }
+
+  if (current == BluetoothBondState.bonded) {
+    SdkLog.i('BLE bond: already bonded remoteId=${device.remoteId}');
+    return;
+  }
+
+  if (current == BluetoothBondState.bonding) {
+    SdkLog.i(
+      'BLE bond: pairing in progress, waiting remoteId=${device.remoteId}',
+    );
+    try {
+      await device.bondState
+          .where((s) => s == BluetoothBondState.bonded)
+          .first
+          .timeout(const Duration(seconds: 90));
+      SdkLog.i('BLE bond: pairing completed remoteId=${device.remoteId}');
+      return;
+    } catch (e, st) {
+      SdkLog.w('BLE bond: wait for bonding failed', e, st);
+    }
+  }
+
+  SdkLog.i(
+    'BLE bond: createBond — confirm the system pairing dialog '
+    'remoteId=${device.remoteId}',
+  );
+  await device.createBond(timeout: 90);
+  SdkLog.i('BLE bond: createBond ok remoteId=${device.remoteId}');
 }
 
 /// Android-only: ask the stack for high (low-latency) connection priority to
