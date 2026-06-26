@@ -69,6 +69,7 @@ export 'src/utils/transfer_progress.dart';
 export 'package:flutter_blue_plus/flutter_blue_plus.dart'
     show
         BluetoothAdapterState,
+        BluetoothBondState,
         BluetoothCharacteristic,
         BluetoothConnectionState,
         BluetoothDevice,

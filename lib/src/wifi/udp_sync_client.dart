@@ -434,6 +434,27 @@ class ClipUdpSyncClient {
       var receivedBytes = 0;
       var lastProgressAt = DateTime.now();
 
+      // Fail-fast guard. The firmware auto-retries a failed file by re-sending
+      // FILE_START from seq 0. In a lossy/congested RF environment a large file
+      // (no byte-offset resume in the protocol) can never complete, so it would
+      // otherwise burn ~12 full-file retries (~1 min) before TRANSFER_DONE
+      // file_count=0. Bail after a few consecutive same-file NACKs so the caller
+      // can fall back to the reliable BLE path instead of stalling.
+      const maxConsecutiveFileNacks = 4;
+      var consecutiveFileNacks = 0;
+      String? lastNackFile;
+
+      // Per-file reassembly counters. We MUST NOT log per datagram in the hot
+      // path: every `SdkLog.d` is bridged to the app's PrettyPrinter logger
+      // (multi-line boxed output to logcat). At hundreds of packets/sec that
+      // synchronous formatting starves this isolate's receive loop, the kernel
+      // UDP buffer overflows and packets are dropped — a single early loss with
+      // no retransmit then wedges assembly forever (e.g. stuck at next=17).
+      // Tally instead and emit one summary per file.
+      var outOfOrderHolds = 0;
+      var duplicateSkips = 0;
+      var staleDrops = 0;
+
       void resetFileAssemblyState() {
         nextExpectedSeq = 0;
         pendingDataBySeq.clear();
@@ -462,22 +483,18 @@ class ClipUdpSyncClient {
         }
         final seq = (data[1] | (data[2] << 8)) & 0xffff;
         if (seq > maxDataSeqInclusive) {
-          SdkLog.d(
-            'ClipUdpSync: drop stale DATA seq=$seq (max=$maxDataSeqInclusive, declared=$declaredFileSize, next=$nextExpectedSeq)',
-          );
+          staleDrops++;
           lastProgressAt = DateTime.now();
           return;
         }
         if (seq < nextExpectedSeq) {
-          SdkLog.d(
-              'ClipUdpSync: skip duplicate DATA seq=$seq (next=$nextExpectedSeq)');
+          duplicateSkips++;
           lastProgressAt = DateTime.now();
           return;
         }
         if (seq > nextExpectedSeq) {
           pendingDataBySeq[seq] = Uint8List.fromList(payload);
-          SdkLog.d(
-              'ClipUdpSync: hold out-of-order DATA seq=$seq (next=$nextExpectedSeq)');
+          outOfOrderHolds++;
           lastProgressAt = DateTime.now();
           return;
         }
@@ -547,6 +564,9 @@ class ClipUdpSyncClient {
           currentData.clear();
           fileCrc = 0;
           resetFileAssemblyState();
+          outOfOrderHolds = 0;
+          duplicateSkips = 0;
+          staleDrops = 0;
           onProgress?.call(name, filesReceived, totalFiles, receivedBytes,
               totalBytes > 0 ? totalBytes : null);
           SdkLog.i('ClipUdpSync FILE_START $name ($fileSize bytes)');
@@ -569,7 +589,14 @@ class ClipUdpSyncClient {
               ByteData.sublistView(data, 1, 5).getUint32(0, Endian.little);
           final crcOk = (fileCrc & 0xffffffff) == (serverCrc & 0xffffffff);
           final cn = currentName;
+          SdkLog.i(
+            'ClipUdpSync FILE_END $cn crcOk=$crcOk assembled=${currentData.length}/'
+            '$declaredFileSize reassembly[outOfOrder=$outOfOrderHolds '
+            'dup=$duplicateSkips stale=$staleDrops pending=${pendingDataBySeq.length}]',
+          );
           if (crcOk && cn != null && currentData.isNotEmpty) {
+            consecutiveFileNacks = 0;
+            lastNackFile = null;
             _sendFileAck(true);
             final path = '$sessionDir/${p.basename(cn)}';
             final bytes = currentData.toBytes();
@@ -596,10 +623,28 @@ class ClipUdpSyncClient {
               'nextSeq=$nextExpectedSeq',
             );
             _sendFileAck(false);
+            if (cn != null && cn == lastNackFile) {
+              consecutiveFileNacks++;
+            } else {
+              consecutiveFileNacks = 1;
+              lastNackFile = cn;
+            }
             currentName = null;
             currentData.clear();
             fileCrc = 0;
             resetFileAssemblyState();
+            if (consecutiveFileNacks >= maxConsecutiveFileNacks) {
+              SdkLog.w(
+                'ClipUdpSync: $lastNackFile failed $consecutiveFileNacks times in a '
+                'row (lossy link, no byte-offset resume) — aborting Wi‑Fi transfer '
+                'to fall back to BLE',
+              );
+              try {
+                await sendAtCommand('AT+CANCEL',
+                    timeout: const Duration(seconds: 2));
+              } catch (_) {}
+              break;
+            }
           }
           lastProgressAt = DateTime.now();
           continue;

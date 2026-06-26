@@ -400,15 +400,22 @@ class WifiHotspotConnector {
         );
       }
 
+      // Join budget is intentionally short. On API 29+ the join uses a
+      // WifiNetworkSpecifier request: if the phone refuses to leave its
+      // internet-bearing Wi‑Fi (e.g. a saved office AP with auto-join), the
+      // request never resolves and the old 45/60/90s waits just made the UI
+      // feel stuck for minutes. Failing fast lets the app fall back to BLE and
+      // prompt the user to rejoin the recorder's hotspot manually.
+
       // 1) Direct specifier (SSID + WPA2 PSK, no internet) — usual path on API 29+.
-      SdkLog.i('[WiFi] Android step1 wifi_iot.connect (no BSSID, 45s)');
+      SdkLog.i('[WiFi] Android step1 wifi_iot.connect (no BSSID, 20s)');
       var connected = await _wifiIotConnect(
         ssid: info.ssid,
         bssid: null,
         password: info.password,
         joinOnce: true,
         withInternet: false,
-        timeoutInSeconds: 45,
+        timeoutInSeconds: 20,
       );
       await logSsidAfter('step1');
       if (connected) {
@@ -418,14 +425,14 @@ class WifiHotspotConnector {
 
       // 2) Same with BSSID from scan (some OEMs / dual-band behave better).
       if (scannedBssid != null && scannedBssid.isNotEmpty) {
-        SdkLog.i('[WiFi] Android step2 wifi_iot.connect with BSSID=$scannedBssid (45s)');
+        SdkLog.i('[WiFi] Android step2 wifi_iot.connect with BSSID=$scannedBssid (20s)');
         connected = await _wifiIotConnect(
           ssid: info.ssid,
           bssid: scannedBssid,
           password: info.password,
           joinOnce: true,
           withInternet: false,
-          timeoutInSeconds: 45,
+          timeoutInSeconds: 20,
         );
         await logSsidAfter('step2');
         if (connected) {
@@ -435,14 +442,14 @@ class WifiHotspotConnector {
       }
 
       // 3) Scan-based: resolves security + BSSID from [ScanResult] then same native connectTo.
-      SdkLog.i('[WiFi] Android step3 wifi_iot.findAndConnect (60s)');
+      SdkLog.i('[WiFi] Android step3 wifi_iot.findAndConnect (25s)');
       try {
         connected = await WiFiForIoTPlugin.findAndConnect(
           info.ssid,
           password: info.password,
           joinOnce: true,
           withInternet: false,
-          timeoutInSeconds: 60,
+          timeoutInSeconds: 25,
         );
       } catch (e, st) {
         SdkLog.w('[WiFi] Android findAndConnect threw', e, st);
@@ -455,25 +462,11 @@ class WifiHotspotConnector {
         return true;
       }
 
-      // 4) Longer timeout once more (AP or DHCP slow).
-      SdkLog.i('[WiFi] Android step4 wifi_iot.connect long timeout 90s (bssid=${scannedBssid ?? "none"})');
-      connected = await _wifiIotConnect(
-        ssid: info.ssid,
-        bssid: scannedBssid,
-        password: info.password,
-        joinOnce: true,
-        withInternet: false,
-        timeoutInSeconds: 90,
-      );
-      await logSsidAfter('step4');
-      if (connected) {
-        await _wifiIotForceWifiUsage(true);
-        return true;
-      }
-
       SdkLog.w(
         '[WiFi] Android all join strategies failed for "${info.ssid}". '
-        'Open system Wi‑Fi settings, connect manually, ensure Location is allowed for this app.',
+        'Phone likely stayed on its internet Wi‑Fi. Falling back to BLE; the app '
+        'should prompt the user to open Wi‑Fi settings, join the recorder AP, and '
+        'disable auto-join for the office network.',
       );
       return false;
     } catch (e, st) {
