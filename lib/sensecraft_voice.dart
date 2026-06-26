@@ -47,6 +47,7 @@ export 'src/wifi/fast_sync_session.dart';
 export 'src/wifi/hotspot_connector.dart';
 export 'src/wifi/transfer_client.dart';
 export 'src/wifi/udp_sync_client.dart';
+export 'src/wifi/wifi_network_errors.dart';
 
 // High-level recording orchestration
 export 'src/session/device_event.dart';

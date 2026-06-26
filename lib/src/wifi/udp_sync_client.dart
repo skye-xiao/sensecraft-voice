@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../utils/crc32.dart';
 import '../utils/sdk_log.dart';
+import 'wifi_network_errors.dart';
 
 /// CLIP UDP transport on device WiFi AP (aligned with `py_test/clip/wifi.py`).
 ///
@@ -57,8 +58,12 @@ class ClipUdpSyncClient {
 
   Timer? _heartbeatTimer;
   bool _connected = false;
+  bool _lastFailureUnreachable = false;
 
   bool get isConnected => _connected;
+
+  /// Set when [connect] or [_send] failed with a routing error (phone off AP).
+  bool get lastFailureUnreachable => _lastFailureUnreachable;
 
   static bool _isRfc1918Ipv4(InternetAddress a) {
     if (a.type != InternetAddressType.IPv4) return false;
@@ -120,6 +125,12 @@ class ClipUdpSyncClient {
 
   Future<void> connect(String host, int port) async {
     if (_connected) return;
+    _lastFailureUnreachable = false;
+    // Drop a partial bind from a previous failed wake/send (common when the phone
+    // has not joined the device AP yet).
+    if (_socket != null) {
+      dispose();
+    }
     _earlyRxReplay.clear();
     _rxQueue.clear();
     _rxSignal = null;
@@ -152,18 +163,33 @@ class ClipUdpSyncClient {
     }
     _tryEnlargeUdpReceiveBuffer(_socket!);
     _sub = _socket!.listen((event) {
-      if (event == RawSocketEvent.read) {
-        final s = _socket!;
-        while (true) {
-          final dg = s.receive();
-          if (dg == null) break;
-          if (dg.data.isNotEmpty) {
-            _enqueueRx(Uint8List.fromList(dg.data));
+      try {
+        if (event == RawSocketEvent.read) {
+          final s = _socket!;
+          while (true) {
+            final dg = s.receive();
+            if (dg == null) break;
+            if (dg.data.isNotEmpty) {
+              _enqueueRx(Uint8List.fromList(dg.data));
+            }
           }
         }
+      } catch (e, st) {
+        SdkLog.w('ClipUdpSync: UDP recv error', e, st);
       }
     });
-    _socket!.send(const [0x0a], _host!, _port); // '\n' wake-up, same as Python
+    try {
+      _socket!.send(const [0x0a], _host!, _port); // '\n' wake-up, same as Python
+    } catch (e, st) {
+      _lastFailureUnreachable = isDeviceApNetworkUnreachable(e);
+      SdkLog.w(
+        'ClipUdpSync: UDP wake send failed ($host:$port — phone may not be on device AP yet)',
+        e,
+        st,
+      );
+      dispose();
+      return;
+    }
     _connected = true;
     _startHeartbeat();
   }
@@ -268,11 +294,27 @@ class ClipUdpSyncClient {
     return _rxQueue.isNotEmpty ? _rxQueue.removeFirst() : null;
   }
 
-  void _send(Uint8List data) {
+  bool _send(Uint8List data) {
     final s = _socket;
     final h = _host;
-    if (s == null || h == null) throw StateError('UDP not connected');
-    s.send(data, h, _port);
+    if (s == null || h == null || !_connected) {
+      SdkLog.w('ClipUdpSync: UDP send skipped (not connected)');
+      return false;
+    }
+    try {
+      s.send(data, h, _port);
+      return true;
+    } catch (e, st) {
+      if (isDeviceApNetworkUnreachable(e)) {
+        _lastFailureUnreachable = true;
+      }
+      SdkLog.w(
+        'ClipUdpSync: UDP send failed (${h.address}:$_port)',
+        e,
+        st,
+      );
+      return false;
+    }
   }
 
   /// Send plain AT command, wait for [udpFrameAtResp] with JSON body.
@@ -282,7 +324,9 @@ class ClipUdpSyncClient {
     int maxSkips = 64,
   }) async {
     final line = _normalizeAtCommand(command);
-    _send(Uint8List.fromList(utf8.encode('$line\n')));
+    if (!_send(Uint8List.fromList(utf8.encode('$line\n')))) {
+      return <String, dynamic>{'ok': false, 'error': 'UDP send failed'};
+    }
 
     final deadline = DateTime.now().add(timeout ?? receiveTimeout);
     var skips = 0;
@@ -319,14 +363,21 @@ class ClipUdpSyncClient {
   }
 
   void _sendFileAck(bool ok) {
-    _send(Uint8List.fromList([udpFrameFileAck, ok ? 0x00 : 0x01]));
+    if (!_send(Uint8List.fromList([udpFrameFileAck, ok ? 0x00 : 0x01]))) {
+      SdkLog.w('ClipUdpSync: FILE_ACK send failed');
+    }
   }
 
   /// Reachability check after joining AP (same socket as file sync).
   Future<bool> ping() async {
-    final r =
-        await sendAtCommand('AT+GSTAT', timeout: const Duration(seconds: 3));
-    return r['ok'] == true;
+    try {
+      final r =
+          await sendAtCommand('AT+GSTAT', timeout: const Duration(seconds: 3));
+      return r['ok'] == true;
+    } catch (e, st) {
+      SdkLog.w('ClipUdpSync: ping failed', e, st);
+      return false;
+    }
   }
 
   /// Download one session over UDP (aligned with `WiFiSync.download_session`).
