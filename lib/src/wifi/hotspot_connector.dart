@@ -365,6 +365,16 @@ class WifiHotspotConnector {
     }
   }
 
+  /// Bind (or unbind) app traffic to the current Wi‑Fi network.
+  ///
+  /// Android: `ConnectivityManager.bindProcessToNetwork` via wifi_iot — keeps
+  /// UDP on the no-internet device AP when the OS would otherwise route via
+  /// cellular / another saved Wi‑Fi. Call periodically during a long transfer;
+  /// some OEMs silently unbind mid-session.
+  ///
+  /// iOS: triggers local-network access / routing toward the hotspot interface.
+  Future<void> forceWifiUsage(bool force) => _wifiIotForceWifiUsage(force);
+
   // -- Platform-specific implementations --
   // These use wifi_iot plugin. Import is deferred to avoid compile errors
   // when the plugin is not yet added; actual calls go through the plugin API.

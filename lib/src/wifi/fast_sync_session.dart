@@ -30,6 +30,14 @@ class WifiFastSyncSession {
 
   bool get isPrepared => _hotspot != null && _client != null;
 
+  /// Re-bind app traffic to the device AP (see [WifiHotspotConnector.forceWifiUsage]).
+  /// No-op if the connector is not yet created.
+  Future<void> forceWifiUsage(bool force) async {
+    final connector = _connector;
+    if (connector == null) return;
+    await connector.forceWifiUsage(force);
+  }
+
   /// Enable device AP and create the UDP client. Does not join phone WiFi.
   Future<WifiHotspotInfo> enableHotspot() async {
     _connector ??= WifiHotspotConnector(at: at);

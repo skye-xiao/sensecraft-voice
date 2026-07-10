@@ -307,6 +307,9 @@ class ClipUdpSyncClient {
     } catch (e, st) {
       if (isDeviceApNetworkUnreachable(e)) {
         _lastFailureUnreachable = true;
+        _connected = false;
+        _heartbeatTimer?.cancel();
+        _heartbeatTimer = null;
       }
       SdkLog.w(
         'ClipUdpSync: UDP send failed (${h.address}:$_port)',
