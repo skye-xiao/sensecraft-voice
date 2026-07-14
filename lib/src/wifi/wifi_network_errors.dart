@@ -26,15 +26,18 @@ bool isDeviceApNetworkUnreachable(Object error) {
     if (msg.contains('network is unreachable') ||
         msg.contains('network is down') ||
         msg.contains('no route to host') ||
-        msg.contains('host is down')) {
+        msg.contains('host is down') ||
+        msg.contains('machine is not on the network')) {
       return true;
     }
   }
   final s = error.toString().toLowerCase();
   return s.contains('network is unreachable') ||
       s.contains('network is down') ||
+      s.contains('machine is not on the network') ||
       s.contains('errno = 101') ||
-      s.contains('errno = 100');
+      s.contains('errno = 100') ||
+      s.contains('errno = 64');
 }
 
 /// True when a routing failure is the normal Wi‑Fi AP reachability probe outcome
