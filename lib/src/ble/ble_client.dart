@@ -139,7 +139,9 @@ class SenseCraftVoiceClient {
         'SenseCraftVoiceClient.connectByDeviceId: '
         'attempting direct connect to $deviceId',
       );
-      await device.connect();
+      // Android: mtu:null — do not requestMtu(512) before LESC pairing.
+      // Early MTU negotiation can surface an extra system pairing UI on Huawei.
+      await device.connect(mtu: Platform.isAndroid ? null : 512);
       await device.connectionState
           .where((s) => s == BluetoothConnectionState.connected)
           .first
@@ -165,7 +167,9 @@ class SenseCraftVoiceClient {
     final device = result.device;
     SdkLog.i('Connecting to ${device.remoteId} ${device.platformName}');
 
-    await device.connect();
+    // Android: skip fbp's default post-connect requestMtu(512). Bond first,
+    // then requestHighMtu(185) in [_buildConnectionAttempt].
+    await device.connect(mtu: Platform.isAndroid ? null : 512);
     await device.connectionState
         .where((s) => s == BluetoothConnectionState.connected)
         .first;
@@ -331,10 +335,15 @@ class _FreshBondFlag {
 
 /// Android-only: ensure the Clip bond exists before encrypted GATT ops.
 ///
-/// [BluetoothDevice.createBond] shows the system pairing UI when needed.
-/// Safe to call when already bonded (no-op). Returns `true` only when a brand
-/// new bond was created in this call (i.e. the system pairing dialog was shown
-/// and confirmed) so callers can avoid re-prompting on a subsequent hiccup.
+/// Returns `true` when a new bond was established during this call.
+///
+/// Clip firmware sends an SMP Security Request after connect, which already
+/// shows the system pairing-code dialog. Calling [BluetoothDevice.createBond]
+/// in that window produces a *second* pairing-code dialog — especially on OEMs
+/// that keep [BluetoothBondState] at `none` until the user confirms.
+///
+/// Strategy: wait for peripheral-initiated bonding to finish first; only if it
+/// never completes do we call createBond once (MIUI / stacks that never auto-pair).
 Future<bool> _ensureAndroidBonded(BluetoothDevice device) async {
   if (!Platform.isAndroid) return false;
 
@@ -346,64 +355,141 @@ Future<bool> _ensureAndroidBonded(BluetoothDevice device) async {
     return false;
   }
 
-  // Not bonded yet. Clip firmware sends an SMP Security Request right after
-  // connect, so on most phones the *stack* auto-initiates bonding within a few
-  // hundred ms. Calling createBond() while that auto-pairing is already in
-  // flight pops a SECOND system dialog — the user sees two pairing prompts.
-  //
-  // Give the firmware/stack a short grace window to start bonding on its own;
-  // only fall back to an explicit createBond() if nothing happens within it
-  // (some OEMs, e.g. MIUI, never auto-pair and instead drop the link with GATT
-  // status 5, so the explicit bond is still required there).
-  if (current == BluetoothBondState.none) {
-    try {
-      current = await device.bondState
-          .where((s) => s != BluetoothBondState.none)
-          .first
-          .timeout(const Duration(seconds: 3));
-      SdkLog.i(
-        'BLE bond: stack auto-initiated bonding ($current) — '
-        'not calling createBond remoteId=${device.remoteId}',
-      );
-    } on TimeoutException {
-      SdkLog.i(
-        'BLE bond: no auto-bonding within grace window; '
-        'falling back to createBond remoteId=${device.remoteId}',
-      );
-      current = BluetoothBondState.none;
-    } catch (e, st) {
-      SdkLog.w('BLE bond: grace-window watch failed', e, st);
-      current = await _readAndroidBondState(device);
-    }
-  }
-
-  // Auto-bonding already started (or finished): just wait it out, never prompt
-  // a second time with createBond.
-  if (current == BluetoothBondState.bonding ||
-      current == BluetoothBondState.bonded) {
-    if (current == BluetoothBondState.bonding) {
-      SdkLog.i(
-        'BLE bond: pairing in progress, waiting remoteId=${device.remoteId}',
-      );
-      // Diagnostic: log every bond-state transition so we can tell whether the
-      // peripheral re-runs SMP (e.g. bonding->none->bonding->bonded), which
-      // shows up to the user as two system pairing dialogs and is a firmware
-      // (not app) issue. A clean single pairing is just bonding->bonded.
-      await _awaitAndroidBondedLogged(device);
-    }
+  SdkLog.i(
+    'BLE bond: waiting for peripheral-initiated pairing (no createBond yet) '
+    'remoteId=${device.remoteId}',
+  );
+  final autoBonded = await _waitForAndroidBondedPreferAuto(device);
+  if (autoBonded) {
+    SdkLog.i(
+      'BLE bond: bonded without createBond remoteId=${device.remoteId}',
+    );
     await _reconnectAndroidGattIfNeeded(device);
     return true;
   }
 
+  current = await _readAndroidBondState(device);
+  if (current == BluetoothBondState.bonded) {
+    await _reconnectAndroidGattIfNeeded(device);
+    return true;
+  }
+  if (current == BluetoothBondState.bonding) {
+    await _awaitAndroidBondedLogged(device);
+    await _reconnectAndroidGattIfNeeded(device);
+    return true;
+  }
+
+  // Still none: stack never completed auto-pair. One explicit attempt only.
+  if (device.isDisconnected) {
+    SdkLog.w(
+      'BLE bond: link down before createBond; reconnecting '
+      'remoteId=${device.remoteId}',
+    );
+    try {
+      await _waitAndroidConnected(device);
+    } catch (e, st) {
+      SdkLog.w('BLE bond: reconnect before createBond failed', e, st);
+      return false;
+    }
+    current = await _readAndroidBondState(device);
+    if (current == BluetoothBondState.bonded) {
+      return true;
+    }
+    if (current == BluetoothBondState.bonding) {
+      await _awaitAndroidBondedLogged(device);
+      await _reconnectAndroidGattIfNeeded(device);
+      return true;
+    }
+  }
+
   SdkLog.i(
-    'BLE bond: createBond — confirm the system pairing dialog '
+    'BLE bond: createBond once (auto-pair did not complete) '
     'remoteId=${device.remoteId}',
   );
   await device.createBond(timeout: 90);
   SdkLog.i('BLE bond: createBond ok remoteId=${device.remoteId}');
-  // Many Android stacks drop GATT briefly after bonding; reconnect before CCCD.
   await _reconnectAndroidGattIfNeeded(device);
   return true;
+}
+
+/// Waits for [BluetoothBondState.bonded] from peripheral/stack-initiated SMP.
+///
+/// Many OEMs show the pairing-code UI while state remains [BluetoothBondState.none]
+/// until confirm — so we must wait for `bonded`, not only for `bonding`.
+/// Returns `false` when auto-pair did not finish in time (caller may createBond).
+Future<bool> _waitForAndroidBondedPreferAuto(BluetoothDevice device) async {
+  if (await _readAndroidBondState(device) == BluetoothBondState.bonded) {
+    return true;
+  }
+
+  final bonded = Completer<void>();
+  var sawBonding = false;
+  var transitions = 0;
+  var last = DateTime.now();
+  final startedAt = last;
+  BluetoothBondState? lastState;
+
+  final sub = device.bondState.listen((s) {
+    final now = DateTime.now();
+    final deltaMs = now.difference(last).inMilliseconds;
+    last = now;
+    transitions++;
+    lastState = s;
+    SdkLog.i(
+      'BLE bond transition #$transitions: $s (+${deltaMs}ms) '
+      'remoteId=${device.remoteId}',
+    );
+    if (s == BluetoothBondState.bonding) {
+      sawBonding = true;
+    }
+    if (s == BluetoothBondState.bonded && !bonded.isCompleted) {
+      bonded.complete();
+    }
+  });
+
+  var ok = false;
+  try {
+    // Phase 1: cover "dialog visible, state still none until user confirms".
+    try {
+      await bonded.future.timeout(const Duration(seconds: 20));
+      ok = true;
+      return true;
+    } on TimeoutException {
+      if (!sawBonding) {
+        SdkLog.i(
+          'BLE bond: no bonded within 20s and never saw bonding — '
+          'auto-pair likely absent remoteId=${device.remoteId}',
+        );
+        return false;
+      }
+      SdkLog.i(
+        'BLE bond: saw bonding but not bonded yet; extending wait '
+        'remoteId=${device.remoteId}',
+      );
+    }
+
+    // Phase 2: user still confirming after bonding state appeared.
+    try {
+      await bonded.future.timeout(const Duration(seconds: 70));
+      ok = true;
+      return true;
+    } on TimeoutException {
+      SdkLog.w(
+        'BLE bond: timed out waiting for bonded after bonding '
+        'remoteId=${device.remoteId}',
+      );
+      return false;
+    }
+  } finally {
+    await sub.cancel();
+    final elapsedMs = DateTime.now().difference(startedAt).inMilliseconds;
+    SdkLog.i(
+      'BLE bond wait summary: ok=$ok createBond=false '
+      'transitions=$transitions sawBonding=$sawBonding '
+      'lastState=${lastState ?? 'n/a'} elapsedMs=$elapsedMs '
+      'remoteId=${device.remoteId}',
+    );
+  }
 }
 
 /// Waits for [device] to reach [BluetoothBondState.bonded] while logging every
@@ -545,8 +631,22 @@ Future<void> _repairAndroidBond(BluetoothDevice device) async {
 
   await _waitAndroidConnected(device);
   bond = await _readAndroidBondState(device);
-  if (bond != BluetoothBondState.bonded) {
+  if (bond == BluetoothBondState.bonded) {
+    await _reconnectAndroidGattIfNeeded(device);
+    return;
+  }
+  // Same rule as first bind: wait for peripheral SMP before createBond so we
+  // do not stack a second pairing-code dialog on top of the auto one.
+  if (await _waitForAndroidBondedPreferAuto(device)) {
+    await _reconnectAndroidGattIfNeeded(device);
+    return;
+  }
+  bond = await _readAndroidBondState(device);
+  if (bond != BluetoothBondState.bonded &&
+      bond != BluetoothBondState.bonding) {
     await device.createBond(timeout: 90);
+  } else if (bond == BluetoothBondState.bonding) {
+    await _awaitAndroidBondedLogged(device);
   }
   await _reconnectAndroidGattIfNeeded(device);
 }
