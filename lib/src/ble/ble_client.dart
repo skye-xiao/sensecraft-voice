@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+import '../at/at_transport.dart';
 import '../utils/sdk_log.dart';
 import 'ble_permissions.dart';
 import 'ble_uuids.dart';
@@ -33,6 +34,16 @@ class SenseCraftVoiceConnection {
     this.batteryLevelStream,
     BluetoothCharacteristic? batteryCharacteristic,
   }) : _batteryCharacteristic = batteryCharacteristic;
+
+  /// Build an [AtTransport] for this live BLE link.
+  AtTransport createAtTransport() {
+    return AtTransport(
+      commandRx: commandRx,
+      responseTx: responseTx,
+      fileData: fileData,
+      mtu: mtu,
+    );
+  }
 }
 
 /// Top-level entry point of the SDK.
@@ -162,6 +173,29 @@ class SenseCraftVoiceClient {
     }
   }
 
+  /// Connect by device ID and verify the AT channel with `AT+GSTAT`.
+  ///
+  /// Returns `null` when the GATT link or AT probe fails.
+  Future<SenseCraftVoiceConnection?> connectByDeviceIdAndVerify(
+    String deviceId, {
+    int attempts = 3,
+    Duration retryGap = const Duration(milliseconds: 450),
+    Duration verifyTimeout = const Duration(seconds: 4),
+  }) async {
+    final conn = await connectByDeviceId(deviceId);
+    if (conn == null) return null;
+    if (await verifyAtLinkReadyWithRetry(
+      conn,
+      attempts: attempts,
+      gap: retryGap,
+      timeout: verifyTimeout,
+    )) {
+      return conn;
+    }
+    await disconnect(conn);
+    return null;
+  }
+
   /// Connect to a previously-discovered scan result.
   Future<SenseCraftVoiceConnection> connect(ScanResult result) async {
     final device = result.device;
@@ -175,6 +209,65 @@ class SenseCraftVoiceClient {
         .first;
 
     return _buildConnection(device);
+  }
+
+  /// Connect to a scan result and verify the AT channel with `AT+GSTAT`.
+  Future<SenseCraftVoiceConnection?> connectAndVerify(
+    ScanResult result, {
+    int attempts = 3,
+    Duration retryGap = const Duration(milliseconds: 450),
+    Duration verifyTimeout = const Duration(seconds: 4),
+  }) async {
+    final conn = await connect(result);
+    if (await verifyAtLinkReadyWithRetry(
+      conn,
+      attempts: attempts,
+      gap: retryGap,
+      timeout: verifyTimeout,
+    )) {
+      return conn;
+    }
+    await disconnect(conn);
+    return null;
+  }
+
+  /// Confirm that `AT+GSTAT` replies on the live link before handing control
+  /// to higher-level session code.
+  Future<bool> verifyAtLinkReady(
+    SenseCraftVoiceConnection conn, {
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    try {
+      final resp = await conn.createAtTransport().send(
+            'AT+GSTAT',
+            timeout: timeout,
+          );
+      final ok = resp['ok'] == true;
+      if (!ok) {
+        SdkLog.w('SenseCraftVoiceClient.verifyAtLinkReady: AT+GSTAT ok=false');
+      }
+      return ok;
+    } catch (e, st) {
+      SdkLog.w('SenseCraftVoiceClient.verifyAtLinkReady: ping failed', e, st);
+      return false;
+    }
+  }
+
+  /// Retry [verifyAtLinkReady] briefly before declaring a freshly connected
+  /// link unusable.
+  Future<bool> verifyAtLinkReadyWithRetry(
+    SenseCraftVoiceConnection conn, {
+    int attempts = 3,
+    Duration gap = const Duration(milliseconds: 450),
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    for (var i = 0; i < attempts; i++) {
+      if (await verifyAtLinkReady(conn, timeout: timeout)) return true;
+      if (i < attempts - 1) {
+        await Future<void>.delayed(gap);
+      }
+    }
+    return false;
   }
 
   Future<SenseCraftVoiceConnection> _buildConnection(
@@ -642,8 +735,7 @@ Future<void> _repairAndroidBond(BluetoothDevice device) async {
     return;
   }
   bond = await _readAndroidBondState(device);
-  if (bond != BluetoothBondState.bonded &&
-      bond != BluetoothBondState.bonding) {
+  if (bond != BluetoothBondState.bonded && bond != BluetoothBondState.bonding) {
     await device.createBond(timeout: 90);
   } else if (bond == BluetoothBondState.bonding) {
     await _awaitAndroidBondedLogged(device);

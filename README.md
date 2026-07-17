@@ -139,9 +139,12 @@ Future<void> main() async {
 | BLE | `MtuManager` | Tracks negotiated ATT MTU; requests high MTU on Android |
 | BLE | `parseClipFileDataNotify` + `ClipFileDataParsed` family | Parse one BLE file-data notification |
 | AT | `AtTransport` | Send AT commands, await JSON replies, observe notify stream |
-| Session | `RecordingSession` | High-level `start/stop/cancel/list/getStatus/download` |
+| Session | `RecordingSession` | High-level `start/pause/resume/stop/cancel/list/getStatus/download` |
 | Session | `DeviceStatus` | Typed view of `AT+GSTAT` |
 | Session | `DownloadEvent` (sealed) | Stream events during `AT+DOWNLOAD` |
+| Session | `DownloadStartRetryPolicy` | Configurable retry / cancel behavior for starting `AT+DOWNLOAD` |
+| Session | `RecordingSession.deleteSessionAfterLocalVerification` | Safe remote delete after merged file verification |
+| Session | `RecordingSession.downloadMergeFetchBookmarksAndMaybeDeleteSession` | Full download, merge, bookmarks, and cleanup flow |
 | OTA | `OtaFirmwareProcessor` | Parse `.zip` / `.bin` into mcumgr images |
 | OTA | `OtaSession` | High-level OTA upgrade with normalised phases and aggregated progress |
 | WiFi | `WifiFastSyncSession` | One-call BLE AP + phone join + UDP download |

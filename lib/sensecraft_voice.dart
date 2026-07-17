@@ -51,11 +51,16 @@ export 'src/wifi/wifi_network_errors.dart';
 
 // High-level recording orchestration
 export 'src/session/device_event.dart';
+export 'src/session/device_runtime_info.dart';
 export 'src/session/device_status.dart';
+export 'src/session/session_opus_part_names.dart';
+export 'src/session/session_opus_parts_merge.dart';
+export 'src/session/session_resume_markers.dart';
 export 'src/session/recording_session.dart';
 
 // Data models
 export 'src/models/device.dart';
+export 'src/models/device_bookmark.dart';
 export 'src/models/device_file_meta.dart';
 export 'src/models/wifi_hotspot_info.dart';
 

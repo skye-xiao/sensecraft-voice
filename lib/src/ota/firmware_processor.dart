@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -44,8 +43,8 @@ class OtaFirmwareProcessor {
         );
       }
 
-      final manifestJson =
-          json.decode(await manifestFile.readAsString()) as Map<String, dynamic>;
+      final manifestJson = json.decode(await manifestFile.readAsString())
+          as Map<String, dynamic>;
       final files = manifestJson['files'] as List<dynamic>?;
       if (files == null || files.isEmpty) {
         throw const OtaFirmwareException(
