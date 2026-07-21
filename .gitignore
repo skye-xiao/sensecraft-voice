@@ -6,19 +6,27 @@
 .pub-cache/
 .pub/
 build/
-pubspec.lock
+/sdk/flutter/pubspec.lock
 
 # IDE
 .idea/
 .vscode/
 *.iml
 
-# Native build artifacts (created when running example)
-example/android/.gradle/
-example/android/app/build/
-example/ios/Pods/
-example/ios/.symlinks/
-example/build/
+# Flutter app build artifacts
+app/android/.gradle/
+app/android/app/build/
+app/ios/Pods/
+app/ios/.symlinks/
+app/build/
+
+# Native SDK build artifacts
+sdk/android/.gradle/
+sdk/android/local.properties
+sdk/android/**/build/
+sdk/ios/.build/
+sdk/ios/.swiftpm/
+sdk/ios/**/xcuserdata/
 
 # OS
 .DS_Store

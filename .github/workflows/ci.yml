@@ -11,32 +11,68 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  analyze-and-test:
-    name: Analyze & test
+  flutter:
+    name: Flutter SDK and app
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
       - name: Install SDK dependencies
+        working-directory: sdk/flutter
         run: flutter pub get
-
-      - name: Dart analyze (SDK)
-        run: dart analyze --fatal-infos
-
-      - name: Flutter test (SDK)
+      - name: Analyze SDK
+        working-directory: sdk/flutter
+        run: flutter analyze --fatal-infos
+      - name: Test SDK
+        working-directory: sdk/flutter
+        run: flutter test
+      - name: Install app dependencies
+        working-directory: app
+        run: flutter pub get
+      - name: Analyze app
+        working-directory: app
+        run: flutter analyze --fatal-infos
+      - name: Test app
+        working-directory: app
         run: flutter test
 
-      - name: Install example dependencies
-        working-directory: example
-        run: flutter pub get
+  android:
+    name: Android SDK and sample
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Test SDK and build sample
+        working-directory: sdk/android
+        run: ./gradlew test :sample:assembleDebug
 
-      - name: Dart analyze (example)
-        working-directory: example
-        run: dart analyze --fatal-infos
+  ios:
+    name: iOS SDK and sample
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test Swift package
+        working-directory: sdk/ios
+        run: swift test
+      - name: Build iOS sample
+        run: >
+          xcodebuild
+          -project sdk/ios/Examples/iOSVerifyApp/SenseCraftVoiceVerifyApp.xcodeproj
+          -scheme SenseCraftVoiceVerifyApp
+          -sdk iphonesimulator
+          -configuration Debug
+          CODE_SIGNING_ALLOWED=NO
+          build
