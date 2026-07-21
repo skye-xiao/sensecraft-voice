@@ -59,6 +59,7 @@ public final class SenseCraftVoiceClient: NSObject, @preconcurrency CBCentralMan
 
     private var peripherals: [UUID: PeripheralSession] = [:]
     private var scanCache: [UUID: ScanResult] = [:]
+    private var scanFiltersByName = true
 
     public override init() {
         self.central = CBCentralManager(delegate: nil, queue: .main)
@@ -67,9 +68,11 @@ public final class SenseCraftVoiceClient: NSObject, @preconcurrency CBCentralMan
         stateHub.publish(central.state)
     }
 
+    /// Scans for Clip devices. By default, results are matched by the "Clip"
+    /// name because some firmware does not advertise the custom service UUID.
     public func startScan(
         timeout: TimeInterval = 12,
-        filterByService: Bool = true
+        filterByService: Bool = false
     ) async throws {
         guard central.state == .poweredOn else {
             throw bluetoothStateError()
@@ -78,6 +81,7 @@ public final class SenseCraftVoiceClient: NSObject, @preconcurrency CBCentralMan
         scanCache.removeAll()
         scanResultsHub.publish([])
         scanningHub.publish(true)
+        scanFiltersByName = !filterByService
 
         if filterByService {
             central.scanForPeripherals(
@@ -286,6 +290,10 @@ public final class SenseCraftVoiceClient: NSObject, @preconcurrency CBCentralMan
         let name = peripheral.name
             ?? (advertisementData[CBAdvertisementDataLocalNameKey] as? String)
             ?? "Unknown"
+        if scanFiltersByName,
+           !name.localizedCaseInsensitiveContains("Clip") {
+            return
+        }
         let connectable = (advertisementData[CBAdvertisementDataIsConnectable] as? Bool) ?? false
         let result = ScanResult(
             peripheral: peripheral,

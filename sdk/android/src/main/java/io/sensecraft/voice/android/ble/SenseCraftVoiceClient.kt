@@ -75,6 +75,7 @@ class SenseCraftVoiceClient(private val context: Context) : BluetoothGattCallbac
         var responseNotified: Boolean = false,
         var fileDataNotified: Boolean = false,
         var batteryNotified: Boolean = false,
+        var servicesDiscoveryStarted: Boolean = false,
         val notifiedCharacteristics: MutableSet<UUID> = linkedSetOf(),
         val notificationQueue: ArrayDeque<NotificationRequest> = ArrayDeque(),
     )
@@ -101,8 +102,13 @@ class SenseCraftVoiceClient(private val context: Context) : BluetoothGattCallbac
 
     fun turnOnAdapter(): Intent = createEnableBluetoothIntent()
 
+    /**
+     * Scans for Clip devices. The default name-based mode accepts devices whose
+     * advertised name contains "Clip", because some firmware does not advertise
+     * the custom service UUID.
+     */
     @SuppressLint("MissingPermission")
-    suspend fun startScan(timeoutMs: Long = 12_000, filterByService: Boolean = true) {
+    suspend fun startScan(timeoutMs: Long = 12_000, filterByService: Boolean = false) {
         val a = adapter ?: throw SenseCraftVoiceError.BluetoothUnavailable("Bluetooth adapter unavailable")
         if (a.state != BluetoothAdapter.STATE_ON) throw bluetoothStateError()
         if (!SenseCraftVoicePermissions.hasPermissions(appContext, includeWifi = false)) {
@@ -116,8 +122,12 @@ class SenseCraftVoiceClient(private val context: Context) : BluetoothGattCallbac
             .build()
         val filters = if (filterByService) listOf(ScanFilter.Builder().setServiceUuid(android.os.ParcelUuid(SenseCraftVoiceBleUuids.clipAtService)).build()) else emptyList()
         val cb = object : ScanCallback() {
-            override fun onScanResult(callbackType: Int, result: ScanResult) = publishScanResult(result)
-            override fun onBatchScanResults(results: MutableList<ScanResult>) = results.forEach(::publishScanResult)
+            override fun onScanResult(callbackType: Int, result: ScanResult) =
+                publishScanResult(result, filterByName = !filterByService)
+
+            override fun onBatchScanResults(results: MutableList<ScanResult>) =
+                results.forEach { publishScanResult(it, filterByName = !filterByService) }
+
             override fun onScanFailed(errorCode: Int) {
                 SdkLog.w("BLE scan failed: $errorCode")
                 _isScanning.value = false
@@ -169,12 +179,12 @@ class SenseCraftVoiceClient(private val context: Context) : BluetoothGattCallbac
         session.responseNotified = false
         session.fileDataNotified = false
         session.batteryNotified = false
+        session.servicesDiscoveryStarted = false
         session.notificationQueue.clear()
         val existingGatt = session.gatt
         val gatt = existingGatt ?: connectGatt(device).also { session.gatt = it }
         if (existingGatt != null) {
-            gatt.requestMtu(247)
-            gatt.discoverServices()
+            requestMtuThenDiscoverServices(gatt, session)
         }
         return withTimeoutResult(15_000) { deferred.await() }
     }
@@ -208,10 +218,11 @@ class SenseCraftVoiceClient(private val context: Context) : BluetoothGattCallbac
         }
     }
 
-    private fun publishScanResult(result: ScanResult) {
+    private fun publishScanResult(result: ScanResult, filterByName: Boolean) {
         val name = result.device.name
             ?: result.scanRecord?.deviceName
             ?: "Unknown"
+        if (filterByName && !name.contains("Clip", ignoreCase = true)) return
         scanCache[result.device.address] = SenseCraftVoiceScanResult(
             device = result.device,
             name = name,
@@ -228,8 +239,7 @@ class SenseCraftVoiceClient(private val context: Context) : BluetoothGattCallbac
             status != BluetoothGatt.GATT_SUCCESS -> failSession(gatt, session, SenseCraftVoiceError.ConnectionFailed("status=$status"))
             newState == BluetoothProfile.STATE_CONNECTED -> {
                 session.gatt = gatt
-                gatt.requestMtu(247)
-                gatt.discoverServices()
+                requestMtuThenDiscoverServices(gatt, session)
             }
             newState == BluetoothProfile.STATE_DISCONNECTED -> {
                 session.connection?.close()
@@ -246,7 +256,29 @@ class SenseCraftVoiceClient(private val context: Context) : BluetoothGattCallbac
     }
 
     override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
-        sessions[gatt.device.address]?.connection?.onMtuChanged(mtu)
+        val session = sessions[gatt.device.address] ?: return
+        session.connection?.onMtuChanged(mtu)
+        discoverServices(gatt, session)
+    }
+
+    private fun requestMtuThenDiscoverServices(gatt: BluetoothGatt, session: PeripheralSession) {
+        // Android permits only one asynchronous GATT operation at a time.
+        // Start service discovery from onMtuChanged instead of racing it with requestMtu.
+        if (!gatt.requestMtu(247)) {
+            discoverServices(gatt, session)
+        }
+    }
+
+    private fun discoverServices(gatt: BluetoothGatt, session: PeripheralSession) {
+        if (session.servicesDiscoveryStarted) return
+        session.servicesDiscoveryStarted = true
+        if (!gatt.discoverServices()) {
+            failSession(
+                gatt,
+                session,
+                SenseCraftVoiceError.ConnectionFailed("discoverServices returned false"),
+            )
+        }
     }
 
     override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
@@ -291,10 +323,6 @@ class SenseCraftVoiceClient(private val context: Context) : BluetoothGattCallbac
             session.notificationQueue.add(NotificationRequest(it, required = false))
         }
         writeNextNotification(gatt, session)
-
-        if (session.responseNotified && session.fileDataNotified && session.connectDeferred?.isCompleted != true) {
-            session.connectDeferred?.complete(connection)
-        }
     }
 
     override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
@@ -308,6 +336,7 @@ class SenseCraftVoiceClient(private val context: Context) : BluetoothGattCallbac
             }
             SdkLog.w("BLE optional notification failed for ${char.uuid}: status=$status")
             writeNextNotification(gatt, session)
+            completeConnectionIfReady(session)
             return
         }
         when (char.uuid) {
@@ -316,11 +345,19 @@ class SenseCraftVoiceClient(private val context: Context) : BluetoothGattCallbac
             SenseCraftVoiceBleUuids.batteryLevelCharacteristic -> session.batteryNotified = true
         }
         session.notifiedCharacteristics += char.uuid
+        writeNextNotification(gatt, session)
+        completeConnectionIfReady(session)
+    }
+
+    private fun completeConnectionIfReady(session: PeripheralSession) {
         val connection = session.connection ?: return
-        if (session.responseNotified && session.fileDataNotified && session.connectDeferred?.isCompleted != true) {
+        if (session.responseNotified &&
+            session.fileDataNotified &&
+            session.notificationQueue.isEmpty() &&
+            session.connectDeferred?.isCompleted != true
+        ) {
             session.connectDeferred?.complete(connection)
         }
-        writeNextNotification(gatt, session)
     }
 
     override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {

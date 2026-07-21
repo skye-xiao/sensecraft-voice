@@ -15,7 +15,12 @@ object SenseCraftVoicePermissions {
             perms += Manifest.permission.ACCESS_FINE_LOCATION
         }
         if (includeWifi) {
-            if (Build.VERSION.SDK_INT >= 33) perms += Manifest.permission.NEARBY_WIFI_DEVICES
+            if (Build.VERSION.SDK_INT >= 33) {
+                perms += Manifest.permission.NEARBY_WIFI_DEVICES
+            } else {
+                // Wi-Fi scan/join APIs require location through Android 12L.
+                perms += Manifest.permission.ACCESS_FINE_LOCATION
+            }
             perms += Manifest.permission.ACCESS_WIFI_STATE
             perms += Manifest.permission.CHANGE_WIFI_STATE
             perms += Manifest.permission.ACCESS_NETWORK_STATE

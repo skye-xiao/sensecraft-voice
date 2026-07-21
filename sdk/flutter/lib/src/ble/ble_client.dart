@@ -76,13 +76,13 @@ class SenseCraftVoiceClient {
 
   /// Start a BLE scan.
   ///
-  /// When [filterByService] is `true` (default), the scan filters by the
-  /// custom Clip AT service UUID; this is cleaner and faster. When `false`,
-  /// it falls back to a name keyword filter (`"Clip"`) which matches the
-  /// Python tooling.
+  /// By default the scan matches the `"Clip"` device-name keyword because
+  /// some firmware does not advertise the custom AT service UUID. Set
+  /// [filterByService] to `true` only when the target firmware is known to
+  /// advertise that service.
   Future<void> startScan({
     Duration timeout = const Duration(seconds: 12),
-    bool filterByService = true,
+    bool filterByService = false,
   }) async {
     final ok = await SenseCraftVoiceBlePermissions.ensureGranted();
     if (!ok) {

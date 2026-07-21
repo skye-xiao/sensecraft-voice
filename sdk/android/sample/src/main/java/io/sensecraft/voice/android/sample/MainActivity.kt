@@ -43,6 +43,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -219,18 +220,22 @@ class MainActivity : Activity() {
     }
 
     private fun renderScanResults(results: List<SenseCraftVoiceScanResult>) {
+        val clipResults = results.filter(::isClipResult)
         scanResultsContainer.removeAllViews()
-        if (results.isEmpty()) {
-            scanResultsContainer.addView(label("No devices yet."))
+        if (clipResults.isEmpty()) {
+            scanResultsContainer.addView(label("No Clip devices yet."))
             return
         }
-        results.take(12).forEach { result ->
+        clipResults.take(12).forEach { result ->
             scanResultsContainer.addView(button("${result.name}  ${result.id}  rssi=${result.rssi}") {
                 deviceIdInput.setText(result.id)
                 connectToDevice(result.id)
             })
         }
     }
+
+    private fun isClipResult(result: SenseCraftVoiceScanResult): Boolean =
+        result.name.contains("Clip", ignoreCase = true)
 
     private fun requestSdkPermissions(): Boolean {
         val permissions = SenseCraftVoiceBlePermissions.requiredPermissions(includeWifi = true)
@@ -287,13 +292,15 @@ class MainActivity : Activity() {
         if (!requestSdkPermissions()) return
         scope.launch {
             runCatching {
-                append("Scanning Clip service for 12 seconds...")
-                client.startScan(timeoutMs = 12_000, filterByService = true)
+                append("Scanning nearby BLE devices for Clip recorders...")
+                client.startScan(timeoutMs = 12_000, filterByService = false)
                 withTimeoutOrNull(13_000) {
-                    client.scanResults.first { it.isNotEmpty() }
-                }?.let { results ->
-                    append("Found ${results.size} Clip device(s). Tap a result to connect.")
-                    deviceIdInput.setText(results.first().id)
+                    client.scanResults
+                        .map { results -> results.filter(::isClipResult) }
+                        .first { it.isNotEmpty() }
+                }?.let { clipResults ->
+                    append("Found ${clipResults.size} Clip device(s). Tap a result to connect.")
+                    deviceIdInput.setText(clipResults.first().id)
                 } ?: append("No Clip devices found.")
             }.onFailure {
                 client.stopScan()

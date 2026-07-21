@@ -126,7 +126,10 @@ class _DemoPageState extends State<DemoPage> {
         _devices.clear();
       });
       try {
-        await _sdk.startScan(timeout: const Duration(seconds: 12));
+        await _sdk.startScan(
+          timeout: const Duration(seconds: 12),
+          filterByService: false,
+        );
       } finally {
         if (mounted) setState(() => _scanning = false);
       }
