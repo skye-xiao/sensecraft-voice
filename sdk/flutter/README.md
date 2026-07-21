@@ -35,6 +35,21 @@ Then:
 flutter pub get
 ```
 
+## Run the complete demo
+
+From the monorepo root:
+
+```bash
+bash setup.sh android   # or: bash setup.sh ios
+cd app
+flutter run
+```
+
+Use a physical Android phone or iPhone. The demo covers scan, connect,
+`AT+VERSION`, battery, recording, status, file listing, BLE/Wi-Fi download and
+OTA. See [`../../app/README.md`](../../app/README.md) for the complete button
+order and platform-specific run instructions.
+
 ## Platform setup
 
 The SDK uses `flutter_blue_plus` and `permission_handler`. The host app must
@@ -49,9 +64,9 @@ declare the matching permissions.
     android:usesPermissionFlags="neverForLocation" />
 <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-<!-- Required for scanning on Android < 12 / some OEMs -->
+<!-- BLE on older devices and Wi-Fi APIs through Android 12L require location -->
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
-    android:maxSdkVersion="30" />
+    android:maxSdkVersion="32" />
 <!-- Required for WiFi fast sync (join device AP) -->
 <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
@@ -205,6 +220,47 @@ await ota.upgrade(File('/path/to/firmware.zip'));
 await sdk.disconnect(conn);
 ```
 
+## Recommended host-app flow
+
+1. Bind `SdkLog` during integration.
+2. Request platform permissions and start a name-based scan.
+3. Show the returned Clip results and stop scanning before connecting.
+4. Keep `SenseCraftVoiceConnection`, `AtTransport` and `RecordingSession`
+   together for the connected lifetime.
+5. Stop recording before BLE/Wi-Fi download or OTA.
+6. Tear down Wi-Fi, stream subscriptions and BLE on success, failure,
+   cancellation and widget disposal.
+
+The default scan matches the `Clip` name because some firmware does not
+advertise the custom AT service. Use `filterByService: true` only for firmware
+known to advertise that UUID.
+
+## Wi-Fi and OTA notes
+
+- Wi-Fi fast sync requires a valid device recording session ID.
+- Android 12L and older use fine location for Wi-Fi APIs; Android 13+ uses
+  Nearby Wi-Fi Devices.
+- The Clip hotspot intentionally has no internet connection.
+- On iOS, automatic joining requires Hotspot Configuration signing and Local
+  Network permission.
+- OTA accepts `.zip` and `.bin` packages. Keep BLE connected and do not power
+  off the Clip during an upgrade.
+
+## Troubleshooting
+
+- No devices: verify Bluetooth permissions, disconnect other clients and use
+  the default Clip-name scan.
+- Android scan or Wi-Fi permission remains denied after a Manifest change:
+  uninstall/reinstall the host app and grant permissions again.
+- Connection or pairing fails: remove a stale system bond after a Clip factory
+  reset, power-cycle the device and scan again.
+- Wi-Fi join fails: stop recording, grant the API-specific permission and
+  accept the system hotspot prompt.
+- iOS Wi-Fi fails: verify the signed App ID has Hotspot Configuration and Local
+  Network access is enabled in Settings.
+- Preserve the `SdkLog` output and the concrete exception when reporting an
+  issue.
+
 ## Device protocol
 
 The Clip AT(JSON) protocol is documented in
@@ -225,7 +281,8 @@ Key UUIDs:
 
 - **0.2** — Unit / integration tests; deeper retry & CRC resync in
   `RecordingSession.download`; migrate Android WiFi scan to `wifi_scan` plugin.
-- **1.0** — API freeze + parity ports to Swift / Kotlin / Python SDKs.
+- **1.0** — API freeze, stable Flutter/Swift/Kotlin parity and published
+  packages.
 
 ## License
 

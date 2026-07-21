@@ -64,7 +64,7 @@ dependencies:
 
 ```
 - [ ] pubspec references sensecraft_voice (path or git ref)
-- [ ] Android: BLUETOOTH_SCAN / CONNECT / ADVERTISE; ACCESS_FINE_LOCATION on Android < 12
+- [ ] Android: BLUETOOTH_SCAN / CONNECT / ADVERTISE; ACCESS_FINE_LOCATION through Android 12L for Wi-Fi; NEARBY_WIFI_DEVICES on Android 13+
 - [ ] iOS: NSBluetoothAlwaysUsageDescription; Local Network usage for WiFi fast sync
 - [ ] SdkLog.bind wired (optional, helps debugging)
 - [ ] Minimal path works: scan → connect → AtTransport → RecordingSession

@@ -22,6 +22,63 @@ Implemented capabilities:
 - Wi-Fi AP network error helper (`WifiNetworkErrors`)
 - device status and event models
 
+## Requirements
+
+- iOS 16+ for the provided UI sample
+- Xcode with an iOS 16 SDK or newer
+- A physical iPhone for BLE, Wi-Fi and OTA verification
+- An Apple Developer team and Hotspot Configuration entitlement for automatic
+  Wi-Fi joining
+
+## Add the package
+
+In Xcode, use **File → Add Package Dependencies** and select this package, or
+add the local package at `sdk/ios`. Link the `SenseCraftVoiceIOS` product to the
+host app target.
+
+Swift Package Manager cannot select a package from a nested Git subdirectory.
+Remote consumers therefore need a release repository/tag whose root contains
+this `Package.swift`; use the local `sdk/ios` package until that release is
+published.
+
+## BLE quick start
+
+The default scan publishes devices whose advertised name contains `Clip`.
+This fallback is used because some firmware does not advertise the custom AT
+service UUID.
+
+```swift
+let client = SenseCraftVoiceClient()
+
+try await client.startScan(timeout: 12)
+
+for await results in client.scanResults where !results.isEmpty {
+    let connection = try await client.connectAndVerify(results[0])
+    guard let connection else { break }
+
+    let at = AtTransport(connection: connection)
+    let session = RecordingSession(connection: connection, at: at)
+    let status = try await session.getStatus()
+    print(status)
+
+    await client.disconnect(connection)
+    break
+}
+```
+
+Keep the client and connection alive for the full session. Stop scanning before
+connecting, and disconnect during screen/service teardown.
+
+## Host app integration sequence
+
+1. Add Bluetooth and Local Network usage descriptions.
+2. Enable Hotspot Configuration for automatic AP join.
+3. Scan and let the user select a Clip.
+4. Connect and verify `AT+GSTAT`.
+5. Create `AtTransport`, then `RecordingSession`.
+6. Stop recording before Wi-Fi transfer or OTA.
+7. Tear down network/BLE resources on success, failure and cancellation.
+
 ## BLE connection readiness
 
 ```swift
@@ -94,8 +151,27 @@ selection for Ethernet/USB test setups while excluding cellular interfaces.
 
 - `swift test`
 - `swift run SenseCraftVoiceVerifyCLI smoke`
+- Open
+  [`Examples/iOSVerifyApp/SenseCraftVoiceVerifyApp.xcodeproj`](Examples/iOSVerifyApp/SenseCraftVoiceVerifyApp.xcodeproj)
+  for physical-device verification.
+- See the
+  [iPhone sample guide](Examples/iOSVerifyApp/README.md) for signing, button
+  order, Wi-Fi, OTA and troubleshooting instructions.
 - See [`../../docs/native-sdk-verification.md`](../../docs/native-sdk-verification.md)
   for BLE and hardware smoke steps.
+
+## Troubleshooting
+
+- No scan results: confirm Bluetooth permission and that no other phone/app is
+  connected. Use name-based scanning unless firmware advertises the service
+  UUID.
+- Direct reconnect returns `nil`: the saved CoreBluetooth UUID is invalid or no
+  longer known; scan again.
+- Wi-Fi join fails: confirm the signed App ID has Hotspot Configuration and
+  Local Network permission is enabled in Settings.
+- OTA reports unsupported: add and link Nordic's
+  `iOSMcuManagerLibrary`.
+- Use `SdkLog.bind` and the sample's **Logs** tab to retain the concrete error.
 
 ## License
 

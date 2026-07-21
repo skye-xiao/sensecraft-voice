@@ -32,6 +32,28 @@ The setup command checks the required toolchain and installs project
 dependencies. On iOS, open `app/ios/Runner.xcworkspace`, choose your own
 development Team, and ensure the App ID has Hotspot Configuration enabled.
 
+## Run the native samples
+
+Android:
+
+```bash
+cd sdk/android
+./gradlew :sample:installDebug
+adb shell am start -n io.sensecraft.voice.android.sample/.MainActivity
+```
+
+iOS:
+
+```bash
+cd sdk/ios
+swift test
+open Examples/iOSVerifyApp/SenseCraftVoiceVerifyApp.xcodeproj
+```
+
+See the [Android sample guide](sdk/android/sample/README.md) and
+[iPhone sample guide](sdk/ios/Examples/iOSVerifyApp/README.md) for signing,
+permissions, button order, Wi-Fi, OTA and troubleshooting.
+
 ## SDK verification
 
 ```bash
