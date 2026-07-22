@@ -15,8 +15,8 @@ class SenseCraftAuthEnv {
   /// Trailing slash required so [Uri.resolve] keeps the `/authapi` prefix.
   static const String _globalProd = 'https://sensecraft-auth.seeed.cc/authapi/';
   static const String _chinaProd = 'https://sensecraft-auth.seeed.cn/authapi/';
-  static const String _test =
-      'https://intranet-sensecap-env-expose-publicdns.seeed.cc/authapi/';
+  // Test/dev host is environment-specific; inject with --dart-define=AUTH_BASE_URL.
+  static const String _test = 'https://test.example.com/authapi/';
 
   /// Resolves the auth base URL for the given runtime [env].
   ///

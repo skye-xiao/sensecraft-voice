@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Which authentication backend the app talks to.
 ///
 /// - [selfHosted]: legacy path. Login/register/OAuth all go to the project's
-///   own Go backend (`sensecraft-respeaker-service`) at the same `baseUri`
+///   own Go backend at the same `baseUri`
 ///   used by business APIs. Tokens are HS256 JWT signed by that backend.
 /// - [senseCraft]: SenseCraft unified auth (`authDomain()`). Login happens
 ///   against `https://sensecraft-auth.seeed.cc/authapi` (etc.), then the

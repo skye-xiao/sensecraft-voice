@@ -12,8 +12,7 @@ export '../../../core/server/api/email_auth_api.dart' show EmailCodeScene, Email
 /// Two implementations live behind this interface:
 ///
 /// - [SelfHostedAuthRepository] — calls the project's own backend
-///   (`sensecraft-respeaker-service`) directly via [EmailAuthApi] / [AuthApi]
-///   / [UserApi].
+///   directly via [EmailAuthApi] / [AuthApi] / [UserApi].
 /// - `SenseCraftAuthRepository` — calls SenseCraft unified auth
 ///   (`authDomain()`), then exchanges the SenseCraft token for a business
 ///   token via `POST /api/v1/user/external/sensecraft/login` so existing

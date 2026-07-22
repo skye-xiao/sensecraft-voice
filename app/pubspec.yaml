@@ -52,7 +52,7 @@ dependencies:
   # Logging
   logger: ^2.5.0
 
-  # Crash / error reporting (self-hosted trace.seeed.cc)
+  # Crash / error reporting (self-hosted Sentry; DSN via --dart-define=SENTRY_DSN)
   sentry_flutter: ^8.14.2
 
   # Device communication

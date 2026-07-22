@@ -15,7 +15,7 @@ import 'server_config.dart';
 
 /// LAN API base when login/env is **dev** (Go backend `listen: 8099` on this Mac).
 /// Override with `--dart-define=API_BASE_URL=http://...` when your Wi‑Fi IP changes.
-const String kDevLanApiBaseUrl = 'http://192.168.120.95:8099/';
+const String kDevLanApiBaseUrl = 'http://127.0.0.1:8099/';
 
 /// Default env at compile time (--dart-define=APP_ENV=xxx when building)
 const String kDefaultAppEnv =
@@ -43,7 +43,7 @@ String _baseUrlForEnv(String env) {
     case 'testing':
     case 'qa':
     case 'uat':
-      return 'https://test-sensecraft-voice-expose.seeed.cc/';
+      return 'https://test.example.com/';
     case 'dev':
     case 'debug':
     case 'local':

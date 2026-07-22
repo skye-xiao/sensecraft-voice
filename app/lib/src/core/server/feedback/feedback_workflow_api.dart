@@ -3,11 +3,12 @@ import 'package:dio/dio.dart';
 import '../server_exception.dart';
 import 'feedback_workflow_values.dart';
 
-/// Seeed AI Bot voice app feedback (`POST /v1/workflows/run`).
+/// Voice app feedback workflow client (`POST /v1/workflows/run`).
 ///
-/// Defaults match [docs/homepage-test/voice_feedback_test.js] and
-/// [docs/homepage-test/feedback_test.js] for local/dev runs.
-/// Override via `--dart-define=API_KEY=...` or `FEEDBACK_WORKFLOW_API_KEY=...`.
+/// No credentials are bundled: set the API key and host via
+/// `--dart-define=API_KEY=...` (or `FEEDBACK_WORKFLOW_API_KEY=...`) and
+/// `--dart-define=API_BASE=...` (or `FEEDBACK_WORKFLOW_BASE_URL=...`).
+/// [isConfigured] is false until an API key is injected.
 class FeedbackWorkflowApi {
   FeedbackWorkflowApi({
     Dio? dio,
@@ -27,9 +28,9 @@ class FeedbackWorkflowApi {
               .replaceAll(RegExp(r'/+$'), ''),
         );
 
-  /// Same as docs/homepage-test node scripts.
-  static const _defaultBaseUrl = 'http://seeed-ai-bot.seeed.cc/v1';
-  static const _demoApiKey = 'app-0gyXoENTr1w2iW6V0DD8CidB';
+  /// Feedback workflow host. Inject via --dart-define=FEEDBACK_WORKFLOW_BASE_URL
+  /// (or API_BASE). Placeholder default; requests are disabled until configured.
+  static const _defaultBaseUrl = 'https://your-feedback-host.example.com/v1';
 
   static const _kBaseUrlPrimary = String.fromEnvironment(
     'FEEDBACK_WORKFLOW_BASE_URL',
@@ -57,7 +58,7 @@ class FeedbackWorkflowApi {
   static String _resolveApiKey() {
     if (_kApiKeyPrimary.isNotEmpty) return _kApiKeyPrimary;
     if (_kApiKeyAlt.isNotEmpty) return _kApiKeyAlt;
-    return _demoApiKey;
+    return '';
   }
 
   static String _resolveBaseUrl() {
@@ -107,7 +108,7 @@ class FeedbackWorkflowApi {
     if (!isConfigured) {
       throw ServerException(
         'Feedback workflow API key is not configured. '
-        'Set API_KEY (see docs/homepage-test).',
+        'Set --dart-define=API_KEY=... to enable feedback submission.',
       );
     }
   }

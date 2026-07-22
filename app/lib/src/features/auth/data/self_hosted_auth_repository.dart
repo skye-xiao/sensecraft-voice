@@ -5,8 +5,7 @@ import '../../../core/server/api/email_auth_api.dart';
 import '../../../core/server/api/user_api.dart';
 import 'auth_repository.dart';
 
-/// [AuthRepository] backed by the project's own Go backend
-/// (`sensecraft-respeaker-service`).
+/// [AuthRepository] backed by the project's own Go backend.
 ///
 /// All calls are thin pass-throughs to the existing [EmailAuthApi] /
 /// [AuthApi] / [UserApi] — this class exists so the UI can depend on the

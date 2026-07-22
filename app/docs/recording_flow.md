@@ -338,5 +338,5 @@ Player duration syncs to DB (`_syncDurationToDbIfNeeded`). When `boundPlayableIs
 | Ogg mux | `core/audio/ogg_opus_muxer.dart` |
 | Raw Opus decode | `core/audio/raw_opus_decoder.dart` |
 | Waveform | `core/audio/audio_waveform_peaks.dart` |
-| Server ASR | `sensecraft-respeaker-service/pkg/controller/asr/asr.go` |
-| Server Opus | `sensecraft-respeaker-service/pkg/asr/opus.go` |
+| Server ASR | backend ASR controller (server-side) |
+| Server Opus | backend Opus handling (server-side) |

@@ -22,8 +22,7 @@
 Default base URL, default model, etc.: `lib/src/features/ai_config/domain/ai_providers.dart`.  
 Required-field validation: `lib/src/features/ai_config/presentation/widgets/ai_config_validation.dart`.
 
-**`config_json` keys and examples**:  
-`sensecraft-respeaker-service/docs/reference/asr_config_json.md`
+**`config_json` keys and examples**: see the backend service's ASR config reference.
 
 ## LLM (`LlmProvider`)
 

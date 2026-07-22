@@ -62,7 +62,7 @@ class AppLocalizations {
       _localizedValues[locale.languageCode]?['email'] ?? 'EMAIL';
   String get emailHint =>
       _localizedValues[locale.languageCode]?['emailHint'] ??
-      'admin@reterminal.io';
+      'you@example.com';
   String get emailExample =>
       _localizedValues[locale.languageCode]?['emailExample'] ??
       'name@example.com';
@@ -3357,7 +3357,7 @@ class AppLocalizations {
       'emailLoginDescription':
           'Enter your email to receive a verification code. If the email is not registered, an account will be automatically created.',
       'email': 'EMAIL',
-      'emailHint': 'admin@reterminal.io',
+      'emailHint': 'you@example.com',
       'emailExample': 'name@example.com',
       'verificationCode': 'Verification Code',
       'verificationCodeHint': 'Enter code',
@@ -4683,7 +4683,7 @@ class AppLocalizations {
       'emailLoginTitle': '邮箱登录',
       'emailLoginDescription': '输入邮箱获取验证码登录。若邮箱未注册，将自动注册并关联。',
       'email': '邮箱',
-      'emailHint': 'admin@reterminal.io',
+      'emailHint': 'you@example.com',
       'emailExample': 'name@example.com',
       'verificationCode': '验证码',
       'verificationCodeHint': '请输入验证码',

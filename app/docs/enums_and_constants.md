@@ -128,7 +128,7 @@ UI currently offers `Auto` / `zh` / `en` (`recording_detail_page.dart`).
 
 ## 5. Server error codes
 
-Aligned with `sensecraft-respeaker-service/pkg/util/errors/errors.go`. Full constants in `lib/src/core/server/server_error_codes.dart`; localized messages in `server_error_localizer.dart`.
+Aligned with the backend service's error definitions. Full constants in `lib/src/core/server/server_error_codes.dart`; localized messages in `server_error_localizer.dart`.
 
 | Range | Codes | Module |
 |-------|-------|--------|
@@ -144,7 +144,7 @@ Aligned with `sensecraft-respeaker-service/pkg/util/errors/errors.go`. Full cons
 | 15001–15006 | llmVendorNotConfigured … promptTemplateUnsupportedChars | LLM |
 
 Vendor-specific `error_key` strings (ASR/LLM adapters) are documented in
-`sensecraft-respeaker-service/docs/reference/errors.md` and mapped in
+the backend service's error reference and mapped in
 `lib/src/core/server/server_error_localizer.dart`.
 
 SenseCraft Auth (authapi) uses a separate code scheme — see `sensecraft_auth/sensecraft_error_codes.dart`.

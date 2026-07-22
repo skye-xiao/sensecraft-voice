@@ -4,7 +4,7 @@
 /// Hosts (Portal `domain()` vs auth `authDomain()`):
 /// - International: `https://sensecap.seeed.cc/portalapi/`
 /// - China:         `https://sensecap.seeed.cn/portalapi/`
-/// - Test (VPN):    `…intranet-sensecap-env-expose-publicdns.seeed.cc/portalapi/`
+/// - Test/dev:      inject with `--dart-define=PAAS_BASE_URL=...`
 ///
 /// [ServerEnvStore]: `release` → international; `dev` / `test` → test intranet
 /// (tokens must match the same env on [SenseCraftAuthEnv]). Override any time
@@ -17,8 +17,8 @@ class SenseCraftPaasEnv {
   /// Trailing slash required so [Uri.resolve] keeps the `/portalapi` prefix.
   static const String _globalProd = 'https://sensecap.seeed.cc/portalapi/';
   static const String _chinaProd = 'https://sensecap.seeed.cn/portalapi/';
-  static const String _test =
-      'https://intranet-sensecap-env-expose-publicdns.seeed.cc/portalapi/';
+  // Test/dev host is environment-specific; inject with --dart-define=PAAS_BASE_URL.
+  static const String _test = 'https://test.example.com/portalapi/';
 
   static Uri baseUriFor(String env) {
     final override = _kOverride.trim();

@@ -96,7 +96,7 @@ lib/src/
                                     │ HTTPS (JWT)
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│  Backend: sensecraft-respeaker-service                                          │
+│  Backend service (self-hosted)                                                │
 │  Routing, auth, ASR/LLM adapters, OSS, MySQL                                    │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -142,7 +142,7 @@ Protocol details: [device_ble_protocol.md](device_ble_protocol.md).
 - Refresh: `POST /api/v1/user/refresh` (`refresh_token` → `access_token`)
 - Header: `Authorization: Bearer <access_token>`
 
-See also [oauth_app_login](../../sensecraft-respeaker-service/docs/reference/oauth_app_login.md), [app_token_refresh](../../sensecraft-respeaker-service/docs/reference/app_token_refresh.md).
+See the backend service's own API reference for the OAuth app-login and token-refresh contracts.
 
 ### 7.2 Main API groups
 
