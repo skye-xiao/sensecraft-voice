@@ -45,7 +45,8 @@ void main() {
   group('RecordingSession.isValidUserDeviceName', () {
     test('accepts printable names within byte limit', () {
       expect(RecordingSession.isValidUserDeviceName('My Clip'), isTrue);
-      expect(RecordingSession.isValidUserDeviceName('中文名'), isTrue);
+      // Multi-byte UTF-8 names within the byte limit are accepted.
+      expect(RecordingSession.isValidUserDeviceName('naïve café'), isTrue);
     });
 
     test('rejects empty, control chars, and too-long names', () {

@@ -139,7 +139,7 @@ class AtTransport {
         // STOP") fired on the device's own IDLE push that the firmware
         // emits right before the real STOP ack, so `at.send('AT+STOP')`
         // returned a payload with `ok:null` / no `data.frames`, and the
-        // App treated stop as failed. UX symptom: "停止失败" toast right
+        // App treated stop as failed. UX symptom: a "stop failed" toast right
         // after stop, and the post-stop transfer pipeline launched with
         // `sizeBytes=0`. See log line "stopRecording: AT+STOP reply
         // ok=null keys=[event, state, session, duration]" — the matched
