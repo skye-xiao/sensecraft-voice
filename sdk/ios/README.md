@@ -1,6 +1,6 @@
 # SenseCraft Voice iOS SDK
 
-Swift Package port of the Flutter `sensecraft-voice-sdk`.
+Swift Package port of the Flutter `sensecraft-voice` SDK.
 
 Implemented capabilities:
 - BLE scan/connect/disconnect

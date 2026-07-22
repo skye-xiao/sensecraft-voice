@@ -23,7 +23,7 @@ dependencies:
 dependencies:
   sensecraft_voice:
     git:
-      url: https://github.com/skye-xiao/sensecraft-voice-sdk.git
+      url: https://github.com/skye-xiao/sensecraft-voice.git
       path: sdk/flutter
       ref: v0.1.0
 ```

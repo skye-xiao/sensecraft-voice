@@ -1,6 +1,6 @@
 # SenseCraft Voice Android SDK
 
-Kotlin port of the Flutter `sensecraft-voice-sdk`.
+Kotlin port of the Flutter `sensecraft-voice` SDK.
 
 Implemented in this first pass:
 - BLE scan/connect/disconnect
