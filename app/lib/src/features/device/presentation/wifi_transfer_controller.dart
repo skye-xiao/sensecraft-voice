@@ -3,7 +3,20 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sensecraft_voice/sensecraft_voice.dart';
+// The app keeps its own copies of these session helpers under core/audio/;
+// hide the SDK's identically-named exports so both can coexist.
+import 'package:sensecraft_voice/sensecraft_voice.dart'
+    hide
+        SessionResumeMarkers,
+        resumeFileIndexFromStartFile,
+        resolveResumeByteFloor,
+        resolveSessionResumeMarkers,
+        kSessionOpusMergeBufferBytes,
+        kSessionOpusMergeProgressEveryBytes,
+        mergeSessionOpusPartFiles,
+        mergeSessionOpusPartsInDirectory,
+        sumCompleteSessionOpusSliceBytes,
+        sumSessionOpusPartBytes;
 
 import '../../../core/db/account_db_key.dart';
 import '../../../core/storage/account_storage_paths.dart';

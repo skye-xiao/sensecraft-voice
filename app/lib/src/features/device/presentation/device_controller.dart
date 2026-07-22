@@ -5,7 +5,19 @@ import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:sensecraft_voice/sensecraft_voice.dart';
+// The app keeps its own copies of these session helpers under core/audio/;
+// hide the SDK's identically-named exports so both can coexist.
+import 'package:sensecraft_voice/sensecraft_voice.dart'
+    hide
+        SessionResumeMarkers,
+        resumeFileIndexFromStartFile,
+        resolveResumeByteFloor,
+        resolveSessionResumeMarkers,
+        compareSessionOpusPartFilename,
+        partNumberFromSessionOpusFilename,
+        isCanonicalCompleteSessionOpusSlice,
+        SessionOpusSliceInventory,
+        inventorySessionOpusParts;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart' show DatabaseException;
 

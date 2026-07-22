@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sensecraft_voice/sensecraft_voice.dart';
+// DeviceRuntimeInfo is defined locally in device_controller.dart; hide the
+// SDK's identically-named export so both can coexist.
+import 'package:sensecraft_voice/sensecraft_voice.dart' hide DeviceRuntimeInfo;
 
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_radii.dart';

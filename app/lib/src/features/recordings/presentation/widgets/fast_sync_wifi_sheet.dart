@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:sensecraft_voice/sensecraft_voice.dart';
+// WifiBatchItem / WifiBleFallbackReason are defined locally in
+// wifi_transfer_controller.dart; hide the SDK's identically-named exports.
+import 'package:sensecraft_voice/sensecraft_voice.dart'
+    hide WifiBatchItem, WifiBleFallbackReason;
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
