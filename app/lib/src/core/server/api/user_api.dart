@@ -103,7 +103,7 @@ class UserSecurityInfo {
 
   /// `true` when [accountType] is not one of [oauthAccountTypes] (non-empty).
   ///
-  /// Used to show 「SenseCraft / 站内账号」as the primary binding when the
+  /// Used to show "SenseCraft / native account" as the primary binding when the
   /// account was not created via Apple / Google / GitHub OAuth.
   bool get isSenseCraftNativeBinding {
     final t = accountType.trim().toLowerCase();

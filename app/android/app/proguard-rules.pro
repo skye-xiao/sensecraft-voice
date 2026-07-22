@@ -1,21 +1,21 @@
 # ----------------------------------------------------------------------------
-# Release 打包时避免 Pigeon 通道被 R8/ProGuard 裁剪导致 channel-error
-# 参见: https://github.com/flutter/flutter/issues/153075
-# 错误示例: SharedPreferencesApi.getAll / GoogleSignInApi.getCredential
+# Prevent Pigeon channels from being stripped by R8/ProGuard in release builds, which causes channel-error.
+# See: https://github.com/flutter/flutter/issues/153075
+# Example error: SharedPreferencesApi.getAll / GoogleSignInApi.getCredential
 # ----------------------------------------------------------------------------
 
-# 保留所有实现 FlutterPlugin 的插件类，避免方法通道无法建立连接
+# Keep all plugin classes implementing FlutterPlugin so method channels can connect.
 -if class * implements io.flutter.embedding.engine.plugins.FlutterPlugin
 -keep,allowshrinking,allowobfuscation class <1>
 
-# 保留 Pigeon 生成的 API 实现类（shared_preferences_android、google_sign_in_android 等）
+# Keep Pigeon-generated API implementation classes (shared_preferences_android, google_sign_in_android, etc.)
 -keep class io.flutter.plugins.sharedpreferences.** { *; }
 -keep class io.flutter.plugins.googlesignin.** { *; }
 
-# 保留 GeneratedPluginRegistrant，确保插件被正确注册
+# Keep GeneratedPluginRegistrant to ensure plugins are registered correctly.
 -keep class io.flutter.plugins.GeneratedPluginRegistrant { *; }
 
-# Sentry (sentry_flutter) — 反射读 SDK / event 字段
+# Sentry (sentry_flutter) — reflectively reads SDK / event fields
 # https://docs.sentry.io/platforms/android/configuration/proguard/
 -keep class io.sentry.** { *; }
 -keep class io.sentry.android.** { *; }

@@ -1869,7 +1869,7 @@ bool shouldShowTransferProgressUi({
   // Download (byte payload) finished for this file: drop the banner right away
   // instead of lingering on the indeterminate "merging" animation (and the
   // hide/show strobe while the state flips transferring → merging). The list
-  // row carries the "合并中" label while the background merge runs.
+  // row carries the "merging" label while the background merge runs.
   //
   // Skipped while bytes are still expected: record-while-transfer (cap unknown
   // or still moving on device) and active Wi‑Fi batches keep the banner. When a
@@ -1936,7 +1936,7 @@ Recording? _pickForegroundTransferringRecording(
   }
   // No row is actively streaming: surface the first `transferring` row that
   // still needs bytes. Rows whose bytes are fully received (only the local
-  // merge is pending) hand their UI to the list-row "合并中" label, so the top
+  // merge is pending) hand their UI to the list-row "merging" label, so the top
   // banner skips them and only falls back to a download-complete row when
   // nothing else is pending (then the banner is hidden anyway).
   Recording? downloadCompletePendingMerge;
@@ -2073,7 +2073,7 @@ List<_RecordingUiItem> _mapToUi(
     final wifiOwnsRow = wifi.isActive && wifi.recordingId == r.id;
     // Controller still has an in-flight BLE leg for this row: never let a
     // transient `received` overshoot (resume re-pull) collapse the row into the
-    // "合并中" label — keep showing transfer progress until the leg actually ends.
+    // "merging" label — keep showing transfer progress until the leg actually ends.
     final transferActiveForRow =
         (deviceUi.activeTransferRecordingId ?? '').trim() == r.id.trim();
     var transferProgress = transferProgressForDisplay(

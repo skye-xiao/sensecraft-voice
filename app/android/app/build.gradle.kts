@@ -30,8 +30,8 @@ android {
         applicationId = "cc.seeed.voice"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // `record` / `ffmpeg_kit_flutter_new` 插件在 Android 端需要更高的 minSdk。
-        // Flutter 默认 flutter.minSdkVersion 通常为 21，这里提升以避免 manifest merger 失败。
+        // The `record` / `ffmpeg_kit_flutter_new` plugins require a higher minSdk on Android.
+        // Flutter's default flutter.minSdkVersion is usually 21; raise it to avoid manifest merger failures.
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -39,12 +39,12 @@ android {
     }
 
     /**
-     * Release 签名（安全做法）
+     * Release signing (secure approach)
      *
-     * - 本地：在 `android/key.properties` 放置 keystore 路径与密码（不提交到 git）
-     * - CI：用环境变量注入（同样不落盘）
+     * - Local: put the keystore path and passwords in `android/key.properties` (not committed to git)
+     * - CI: inject via environment variables (also never written to disk)
      *
-     * key.properties 示例见：android/key.properties.example
+     * See android/key.properties.example for the key.properties template.
      */
     val keystoreProperties = Properties()
     val keystorePropertiesFile = rootProject.file("key.properties")
@@ -66,7 +66,7 @@ android {
         !keyAliasValue.isNullOrBlank() &&
         !keyPasswordValue.isNullOrBlank()
 
-    // 只在真正需要 release 构建时才强制要求签名，避免影响 debug（flutter run/assembleDebug）
+    // Only require signing when a release build is actually requested, so debug (flutter run/assembleDebug) is unaffected.
     val isReleaseTaskRequested = gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }
     if (isReleaseTaskRequested && !canSignRelease) {
         throw GradleException(
@@ -89,18 +89,19 @@ android {
 
     buildTypes {
         debug {
-            // 方案 B：Debug 与 Release 共用 `release` 签名（需 android/key.properties 或 CI 环境变量）。
-            // 这样 `flutter run` 安装的 APK 与上架包 SHA-1 一致，Google OAuth Android 客户端只需填一个指纹。
-            // 未配置正式密钥时仍使用默认 android.debug.keystore。
+            // Option B: Debug and Release share the `release` signing config (needs android/key.properties or CI env vars).
+            // This makes the APK installed by `flutter run` share the SHA-1 with the store build, so the Google OAuth
+            // Android client only needs a single fingerprint. Falls back to the default android.debug.keystore when no
+            // production key is configured.
             if (canSignRelease) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
         release {
-            // Release 使用正式签名（安全：密钥不入库）
+            // Release uses the production signing config (secure: keys are not committed).
             signingConfig = if (canSignRelease) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
-            // 关闭代码压缩/混淆，避免 Pigeon 通道被裁剪导致 channel-error
-            // （shared_preferences、google_sign_in 等插件的原生通道无法建立连接）
+            // Disable code shrinking/obfuscation to avoid Pigeon channels being stripped, which causes channel-error
+            // (native channels of plugins like shared_preferences, google_sign_in would fail to connect).
             isMinifyEnabled = false
             isShrinkResources = false
             proguardFiles(

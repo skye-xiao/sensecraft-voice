@@ -254,7 +254,7 @@ bool transferUiLocalMergePhase({
   /// When true, the device controller still has an in-flight BLE leg for this
   /// row. Suppresses the byte-based "download complete" inference so a `received`
   /// count that briefly overshoots the expected total during a resume re-pull is
-  /// not mistaken for completion (would wrongly show "合并中" while still pulling).
+  /// not mistaken for completion (would wrongly show "merging" while still pulling).
   bool transferActiveForRecording = false,
 }) {
   if (liveRecordWhileBleTransfer) return false;
@@ -262,8 +262,8 @@ bool transferUiLocalMergePhase({
   if (recording.transferState == 'merging') return true;
   // Byte payload is fully received but the DB hasn't flipped to `merging` yet
   // (the merge job is enqueued a moment later). Treat this gap as the merge
-  // phase so the UI shows "合并中" the instant the download completes instead
-  // of lingering on an indeterminate "同步中".
+  // phase so the UI shows "merging" the instant the download completes instead
+  // of lingering on an indeterminate "syncing".
   return transferUiDownloadCompletePendingMerge(
     recording: recording,
     liveRecordWhileBleTransfer: liveRecordWhileBleTransfer,
@@ -290,12 +290,12 @@ bool transferUiDownloadCompletePendingMerge({
   if (wifiOwnsProgressForRecording) return false;
   // Still actively pulling bytes: `received` can transiently exceed the expected
   // total during a resume re-pull (carried-over count + re-downloaded slices).
-  // That overshoot is NOT completion — keep showing progress, not "合并中".
+  // That overshoot is NOT completion — keep showing progress, not "merging".
   if (transferActiveForRecording) return false;
   if (recording.transferState != 'transferring') return false;
   // Use the *known* total only (expected/size). Never the received-inflated
   // cap: when the total is unknown the download is not provably complete and
-  // must stay an indeterminate "同步中", not jump to "合并中".
+  // must stay an indeterminate "syncing", not jump to "merging".
   final expected =
       (recording.expectedBytes ?? 0) > 0 ? recording.expectedBytes! : 0;
   final size = (recording.sizeBytes ?? 0) > 0 ? recording.sizeBytes! : 0;
@@ -347,7 +347,7 @@ double? transferProgressForDisplay({
       // NOT merge. Hold a steady near-full determinate bar instead of flipping
       // to an indeterminate "dynamic" phase mid-transfer (the strobe the user
       // sees). Once the leg ends (active id cleared) the merge/hide path takes
-      // over and the list shows "合并中".
+      // over and the list shows "merging".
       if (transferActiveForRecording) {
         return kTransferProgressDisplayMaxWhileTransferring;
       }

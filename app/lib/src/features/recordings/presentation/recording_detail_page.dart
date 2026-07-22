@@ -1298,7 +1298,7 @@ class _RecordingDetailPageState extends ConsumerState<RecordingDetailPage> {
             (recording.transferState == 'transferring' ||
                 recording.transferState == 'merging');
         // Reuse the exact list/banner presentation so the placeholder label and
-        // bar (同步中 / 合并中 / NN%) stay consistent across the app.
+        // bar (syncing / merging / NN%) stay consistent across the app.
         final syncUi = syncInProgress
             ? resolveTransferSyncStatusPresentation(
                 recording: recording,

@@ -685,7 +685,7 @@ class _BackgroundLink {
   /// Periodic AT+GSTAT keepalive on this dormant link. Android may silently
   /// allow a no-traffic LE connection to degrade so the next AT after promote
   /// times out even though the OS still reports "connected" — that surfaces
-  /// to the user as "切过去显示在线但指令发不出". Pinging every few seconds
+  /// to the user as "switched over, shows online but commands can't be sent". Pinging every few seconds
   /// keeps the radio active and also gives us an early signal when the peer
   /// has gone (so the pool entry can be evicted before the user tries to
   /// switch).
@@ -7892,7 +7892,7 @@ class DeviceController extends Notifier<DeviceUiState> {
     // iOS: free the link before AT+PAUSE for the same reason as AT+STOP/CANCEL —
     // a live record-while-transfer `fileData` flood keeps
     // `canSendWriteWithoutResponse` false so the write-without-response AT+PAUSE
-    // never goes out → "暂停录音失败". cancelTransfer (when a transfer is
+    // never goes out → a "pause recording failed" toast. cancelTransfer (when a transfer is
     // registered) already does this, but cover the unmatched-flood case too.
     // Notify is re-enabled at the next download leg in [downloadSessionToLocal].
     await _disableFileDataNotifyToFreeBleLink(
@@ -8094,18 +8094,18 @@ class DeviceController extends Notifier<DeviceUiState> {
     // recovery path below:
     //   1. send threw (timeout / disconnect race / serial queue cancelled)
     //   2. firmware replied ok=false (commonly code 4005 = "Not currently
-    //      recording", but we hit "停止录音失败" toasts in the wild whenever
+      //      recording", but we hit "stop recording failed" toasts in the wild whenever
     //      the firmware uses non-English or otherwise-worded errors that the
     //      keyword detector misses)
     // In both cases the real source of truth is the device's current state,
     // not the AT reply — so we re-probe with AT+GSTAT and treat "device is
-    // already idle" as success. This eliminates spurious "停止失败" toasts
+    // already idle" as success. This eliminates spurious "stop failed" toasts
     // when the firmware actually finished the session (device-button STOP,
     // SD card / battery auto-stop, or any racy disconnect right after STOP).
     // Both platforms hit the same contention: while a live record-while-transfer
     // pull floods the `fileData` notify characteristic, the BLE link is saturated
     // so the AT+STOP reply (and on iOS the AT+STOP write itself) is delayed past
-    // the timeout → spurious "停止录音失败" toast on every finish.
+    // the timeout → spurious "stop recording failed" toast on every finish.
     //   • iOS: the command RX characteristic is WRITE-WITHOUT-RESPONSE only, and
     //     CoreBluetooth keeps `canSendWriteWithoutResponse` false under the flood,
     //     so AT+STOP is queued but never transmitted.

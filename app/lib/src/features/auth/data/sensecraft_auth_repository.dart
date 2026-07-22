@@ -645,8 +645,8 @@ class SenseCraftAuthRepository implements AuthRepository {
   // Internals
   // =====================================================================
 
-  /// SenseCraft OpenAPI §6.1 `type`: **4 = 登录验证码**（较 RN 老代码仅写 1/2
-  /// 更新；传 4 与文档一致，用于 `EmailCodeScene.login`）。
+  /// SenseCraft OpenAPI §6.1 `type`: **4 = login verification code** (updated from
+  /// the old RN code which only used 1/2; sending 4 matches the docs, used for `EmailCodeScene.login`).
   static int _sceneToType(EmailCodeScene scene) {
     // 1=register, 2=resetPassword, 3=bind, 4=login verification code.
     switch (scene) {

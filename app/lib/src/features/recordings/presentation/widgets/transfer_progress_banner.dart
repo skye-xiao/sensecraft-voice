@@ -63,7 +63,7 @@ class TransferProgressBanner extends StatefulWidget {
   /// True while the device controller still has an in-flight BLE leg for this
   /// row. Suppresses the byte-based "download complete" merge inference so a
   /// transient `received` overshoot during a resume re-pull keeps showing live
-  /// progress instead of flipping to "合并中".
+  /// progress instead of flipping to "merging".
   final bool transferActiveForRecording;
 
   const TransferProgressBanner({

@@ -21,8 +21,8 @@ import 'widgets/app_text_field.dart';
 class EmailLoginPage extends ConsumerStatefulWidget {
   final String email;
   /// When `true`, [login_landing_page] / register flow already called
-  /// `sendEmailCode(… login)` — show resend cooldown instead of primary
-  /// 「发送验证码」, matching [RegisterVerifyCodePage] behaviour.
+  /// `sendEmailCode(… login)` — show resend cooldown instead of the primary
+  /// "Send code" action, matching [RegisterVerifyCodePage] behaviour.
   final bool codeAlreadySent;
   const EmailLoginPage({super.key, required this.email, this.codeAlreadySent = false});
 
@@ -44,7 +44,7 @@ class _EmailLoginPageState extends ConsumerState<EmailLoginPage> {
     super.initState();
     _footerListenable = Listenable.merge([_code, _secondsLeftN]);
     // e.g. `/login/email?code_sent=1` — first code already sent; do not
-    // duplicate primary 「发送验证码」before cooldown (password-login entry
+    // duplicate the primary "Send code" action before cooldown (password-login entry
     // omits `code_sent` and must send manually).
     if (widget.codeAlreadySent) {
       _startCountdown(60);

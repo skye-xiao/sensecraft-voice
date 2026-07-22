@@ -7,7 +7,7 @@ import '../server_exception.dart';
 /// flow instead of surfacing a hard error.
 ///
 /// - Self-hosted: HTTP 409 or biz `2005` / `2009`
-/// - SenseCraft: `11013` 邮箱已使用（e.g. `getEmailCode` with register type）
+/// - SenseCraft: `11013` email already in use (e.g. `getEmailCode` with register type)
 bool emailAlreadyRegisteredForAuthFlow(ServerException e) {
   return e.statusCode == 409 ||
       e.bizCode == ServerErrorCodes.userAlreadyExists ||

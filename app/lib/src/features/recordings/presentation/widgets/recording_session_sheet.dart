@@ -412,7 +412,7 @@ class _RecordingSessionSheetState extends ConsumerState<RecordingSessionSheet>
   /// popup at 0. [activeRecordingDurationSeconds] is seeded from the firmware
   /// GSTAT the controller runs at connect and keeps ticking, so it matches the
   /// device clock — this is NOT a local session-id guess (which caused the
-  /// earlier "数字跳动").
+  /// earlier "number jitter").
   void _applyControllerRecordingFallback() {
     if (!mounted || _view == _SessionView.finished) return;
     final ctrl = ref.read(deviceControllerProvider.notifier);
@@ -486,7 +486,7 @@ class _RecordingSessionSheetState extends ConsumerState<RecordingSessionSheet>
     // Do NOT seed the clock from local estimates (session-id inference / DB
     // started-at / activeRecordingDurationSeconds) before this GSTAT: that made
     // the displayed time guess first and then snap to the firmware value when the
-    // reply arrived ("数字跳动"). The elapsed time on entry now comes straight
+    // reply arrived ("number jitter"). The elapsed time on entry now comes straight
     // from the firmware GSTAT duration below, and the smooth ticker is anchored
     // to it.
     RecStatus? st;
@@ -502,7 +502,7 @@ class _RecordingSessionSheetState extends ConsumerState<RecordingSessionSheet>
     // controller's firmware-anchored running clock (seeded from the connect-time
     // GSTAT and ticking locally — not a session-id guess). Fast BLE (Android)
     // replies well before this fires, so the grace seed never runs there and the
-    // earlier "数字跳动" stays fixed.
+    // earlier "number jitter" stays fixed.
     Timer? graceSeedTimer;
     if (!_recordingUiFollowsAtAck) {
       graceSeedTimer = Timer(const Duration(milliseconds: 700), () {
@@ -2373,7 +2373,7 @@ class _RecordingSyncProgress extends ConsumerWidget {
         if (rec == null) return const SizedBox.shrink();
         // In-flight BLE leg for this row: suppress the byte-based merge inference
         // so a transient `received` overshoot during a resume re-pull keeps the
-        // progress bar visible instead of flipping to "合并中".
+        // progress bar visible instead of flipping to "merging".
         final transferActiveForRec =
             (ref.watch(deviceControllerProvider).activeTransferRecordingId ?? '')
                     .trim() ==

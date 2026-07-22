@@ -4,8 +4,9 @@ platform :ios, '14.0'
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-# ffmpeg_kit_flutter_new 需要先下载 iOS 原生框架；podspec 仅在 Frameworks 目录不存在时执行脚本，
-# 若目录已存在但为空会导致 'FFmpegKitConfig.h' file not found。此处在 Frameworks 为空时补跑 setup。
+# ffmpeg_kit_flutter_new must download its iOS native frameworks first; the podspec only runs the script when the
+# Frameworks directory does not exist. If the directory exists but is empty, it causes 'FFmpegKitConfig.h' file not
+# found. This re-runs setup when Frameworks is empty.
 def ensure_ffmpeg_kit_ios_frameworks
   ios_dir = File.expand_path('.symlinks/plugins/ffmpeg_kit_flutter_new/ios', File.dirname(__FILE__))
   frameworks_dir = File.join(ios_dir, 'Frameworks')
