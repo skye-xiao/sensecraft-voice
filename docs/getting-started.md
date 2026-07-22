@@ -35,14 +35,15 @@ signing identities, or create backend configuration.
 ## Run
 
 ```bash
-cd app
+cd sdk/flutter/example
 flutter devices
 flutter run
 ```
 
 Grant Bluetooth, Nearby Wi-Fi Devices, and Local Network permissions when
-prompted. On iOS, select your own Team in `app/ios/Runner.xcworkspace` and
-enable Hotspot Configuration for the App ID.
+prompted. On iOS, select your own Team in
+`sdk/flutter/example/ios/Runner.xcworkspace` and enable Hotspot Configuration
+for the App ID.
 
 ## Suggested hardware flow
 

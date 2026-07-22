@@ -1,21 +1,21 @@
 # SenseCraft Voice
 
-Monorepo for the SenseCraft Voice Flutter app and Flutter, Android, and iOS
-SDKs. The SDKs communicate directly with a SenseCraft Voice Clip over BLE and
-the device Wi-Fi access point; no API key or backend configuration is required.
+Monorepo for the SenseCraft Voice Flutter, Android, and iOS SDKs and their
+example apps. The SDKs communicate directly with a SenseCraft Voice Clip over
+BLE and the device Wi-Fi access point; no API key or backend configuration is
+required.
 
 ## Repository layout
 
 ```text
-app/                  Complete Flutter demo
-sdk/flutter/          Flutter SDK
-sdk/android/          Native Android SDK and sample
-sdk/ios/              Native iOS SDK and samples
+sdk/flutter/          Flutter SDK (+ example/ demo app)
+sdk/android/          Native Android SDK (+ sample/ demo app)
+sdk/ios/              Native iOS SDK (+ Examples/ demo app)
 docs/                 Integration and verification guides
 scripts/              Environment checks
 ```
 
-## Run the Flutter app
+## Run the Flutter example
 
 Use a physical phone for BLE, Wi-Fi transfer, and OTA:
 
@@ -24,13 +24,14 @@ git clone <repository-url> sensecraft-voice
 cd sensecraft-voice
 bash setup.sh android
 # or: bash setup.sh ios
-cd app
+cd sdk/flutter/example
 flutter run
 ```
 
 The setup command checks the required toolchain and installs project
-dependencies. On iOS, open `app/ios/Runner.xcworkspace`, choose your own
-development Team, and ensure the App ID has Hotspot Configuration enabled.
+dependencies. On iOS, open
+`sdk/flutter/example/ios/Runner.xcworkspace`, choose your own development Team,
+and ensure the App ID has Hotspot Configuration enabled.
 
 ## Run the native samples
 

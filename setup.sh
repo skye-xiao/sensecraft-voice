@@ -2,4 +2,4 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec bash "$repo_root/app/setup.sh" "${1:-}"
+exec bash "$repo_root/sdk/flutter/example/setup.sh" "${1:-}"

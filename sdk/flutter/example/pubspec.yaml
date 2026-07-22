@@ -15,7 +15,7 @@ dependencies:
   path_provider: ^2.1.5
 
   sensecraft_voice:
-    path: ../sdk/flutter
+    path: ..
 
 dev_dependencies:
   flutter_test:

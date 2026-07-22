@@ -13,12 +13,12 @@ build/
 .vscode/
 *.iml
 
-# Flutter app build artifacts
-app/android/.gradle/
-app/android/app/build/
-app/ios/Pods/
-app/ios/.symlinks/
-app/build/
+# Flutter example build artifacts
+sdk/flutter/example/android/.gradle/
+sdk/flutter/example/android/app/build/
+sdk/flutter/example/ios/Pods/
+sdk/flutter/example/ios/.symlinks/
+sdk/flutter/example/build/
 
 # Native SDK build artifacts
 sdk/android/.gradle/

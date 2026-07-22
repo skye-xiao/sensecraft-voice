@@ -419,7 +419,7 @@ packages:
   sensecraft_voice:
     dependency: "direct main"
     description:
-      path: "../sdk/flutter"
+      path: ".."
       relative: true
     source: path
     version: "0.1.0"

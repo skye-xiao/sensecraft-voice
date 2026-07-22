@@ -35,19 +35,19 @@ Then:
 flutter pub get
 ```
 
-## Run the complete demo
+## Run the example demo
 
 From the monorepo root:
 
 ```bash
 bash setup.sh android   # or: bash setup.sh ios
-cd app
+cd sdk/flutter/example
 flutter run
 ```
 
 Use a physical Android phone or iPhone. The demo covers scan, connect,
 `AT+VERSION`, battery, recording, status, file listing, BLE/Wi-Fi download and
-OTA. See [`../../app/README.md`](../../app/README.md) for the complete button
+OTA. See [`example/README.md`](example/README.md) for the complete button
 order and platform-specific run instructions.
 
 ## Platform setup

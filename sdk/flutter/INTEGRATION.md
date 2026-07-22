@@ -56,7 +56,7 @@ dependencies:
 
 | App | Package / Bundle ID | SDK dependency | Business docs |
 |-----|---------------------|----------------|---------------|
-| SenseCraft Voice App | Demo-specific | `path: ../sdk/flutter` | Monorepo `app/README.md` |
+| SenseCraft Voice Flutter Example | Demo-specific | `path: ..` | `sdk/flutter/example/README.md` |
 
 ---
 

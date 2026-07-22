@@ -6,7 +6,7 @@ app_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$app_dir/.." && pwd)"
 
 if [[ "$platform" != "android" && "$platform" != "ios" ]]; then
-  echo "Usage: bash app/setup.sh <android|ios>" >&2
+  echo "Usage: bash sdk/flutter/example/setup.sh <android|ios>" >&2
   exit 64
 fi
 
@@ -24,7 +24,7 @@ if [[ "$platform" == "ios" ]]; then
     cd "$app_dir/ios"
     pod install
   )
-  echo "Select your Apple development Team in app/ios/Runner.xcworkspace."
+  echo "Select your Apple development Team in sdk/flutter/example/ios/Runner.xcworkspace."
 fi
 
-echo "Setup complete. Run: cd app && flutter run"
+echo "Setup complete. Run: cd sdk/flutter/example && flutter run"

@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   flutter:
-    name: Flutter SDK and app
+    name: Flutter SDK and example
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,14 +31,14 @@ jobs:
       - name: Test SDK
         working-directory: sdk/flutter
         run: flutter test
-      - name: Install app dependencies
-        working-directory: app
+      - name: Install example dependencies
+        working-directory: sdk/flutter/example
         run: flutter pub get
-      - name: Analyze app
-        working-directory: app
+      - name: Analyze example
+        working-directory: sdk/flutter/example
         run: flutter analyze --fatal-infos
-      - name: Test app
-        working-directory: app
+      - name: Test example
+        working-directory: sdk/flutter/example
         run: flutter test
 
   android:

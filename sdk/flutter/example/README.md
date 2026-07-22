@@ -1,4 +1,4 @@
-# SenseCraft Voice App
+# SenseCraft Voice Flutter Example
 
 Complete Flutter demo for the SDK:
 
@@ -15,7 +15,7 @@ Complete Flutter demo for the SDK:
 ## Run
 
 ```bash
-cd app
+cd sdk/flutter/example
 flutter pub get
 flutter run   # use a physical device for reliable BLE
 ```
@@ -38,8 +38,8 @@ device. Android 13+ prompts for Nearby Wi-Fi Devices in addition to Bluetooth.
 
 No API key or backend configuration is required. A SenseCraft Voice Clip is
 required for BLE, WiFi, and OTA hardware verification. See the SDK
-[README "Platform setup"](../sdk/flutter/README.md#platform-setup) and
-[INTEGRATION.md](../sdk/flutter/INTEGRATION.md) for host-app integration
+[README "Platform setup"](../README.md#platform-setup) and
+[INTEGRATION.md](../INTEGRATION.md) for host-app integration
 details.
 
 ## First connection
