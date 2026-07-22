@@ -46,3 +46,10 @@ app.*.map.json
 
 # Huawei / local store submission packs (screenshots, zip, AI label PDFs)
 /docs/huawei_store_materials/
+
+# Secrets / per-project credentials (use the *.example templates instead)
+/ios/Runner/GoogleService-Info.plist
+/android/app/google-services.json
+/android/key.properties
+*.jks
+*.keystore

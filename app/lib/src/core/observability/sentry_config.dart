@@ -9,16 +9,18 @@ import 'package:sensecraft_voice/sensecraft_voice.dart'
 import '../server/server_providers.dart' show kDefaultAppEnv;
 import 'sentry_noise.dart';
 
-/// Self-hosted Sentry at trace.seeed.cc (project 8).
+/// Optional Sentry reporting. The DSN is injected at build time via
+/// `--dart-define=SENTRY_DSN=...` and defaults to empty, so builds never
+/// report to Sentry unless a DSN is explicitly provided.
 class SentryConfig {
   SentryConfig._();
 
-  static const dsn =
-      'https://129e08132a8b37a918dfdcdd8a01dd1e@trace.seeed.cc/8';
+  static const dsn = String.fromEnvironment('SENTRY_DSN');
 
   /// Release **build** + release **APP_ENV** only (`--dart-define=APP_ENV=release`).
   /// Debug/profile builds and test/dev/local envs never report.
-  static bool get enabled => kReleaseMode && _isReleaseAppEnv;
+  static bool get enabled =>
+      kReleaseMode && _isReleaseAppEnv && dsn.isNotEmpty;
 
   static bool get _isReleaseAppEnv {
     switch (kDefaultAppEnv.trim().toLowerCase()) {
