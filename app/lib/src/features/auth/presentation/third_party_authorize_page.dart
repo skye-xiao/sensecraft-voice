@@ -179,9 +179,10 @@ class _GenericAuthorizeState extends ConsumerState<_GenericAuthorize>
   static const String _githubClientId = String.fromEnvironment(
     'GITHUB_CLIENT_ID',
     // GitHub App / OAuth App client id (must match the app whose Callback URL
-    // lists `sensecraftvoice://oauth-callback`). Build override:
+    // lists `sensecraftvoice://oauth-callback`). Empty by default so GitHub
+    // login stays disabled until you inject your own client id via
     // `--dart-define=GITHUB_CLIENT_ID=...`
-    defaultValue: 'Iv23liaPMJxOyKXEs8kt',
+    defaultValue: '',
   );
   /// Must match GitHub App / OAuth App callback URL, Android
   /// `CallbackActivity` intent-filter, and iOS `CFBundleURLSchemes`.

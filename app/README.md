@@ -11,8 +11,8 @@ respeaker-app connects the ReSpeaker hardware device with cloud services, giving
 ```
 ┌──────────────┐      BLE         ┌──────────────────┐      HTTPS       ┌──────────────────┐
 │ ReSpeaker    │◄────────────────►│  respeaker-app    │◄────────────────►│  Backend service  │
-│ hardware     │  recording/files │  (Flutter)        │   OSS/ASR/LLM    │  sensecraft-      │
-└──────────────┘                  └──────────────────┘                  │  respeaker-service│
+│ hardware     │  recording/files │  (Flutter)        │   OSS/ASR/LLM    │  (self-hosted)    │
+└──────────────┘                  └──────────────────┘                  │                   │
                                                                         └──────────────────┘
 ```
 
@@ -45,6 +45,69 @@ respeaker-app connects the ReSpeaker hardware device with cloud services, giving
 
 ---
 
+## Running the app
+
+### Prerequisites
+
+- Flutter 3.27+ (Dart 3.6+) and a **physical** Android phone or iPhone — BLE, Wi-Fi transfer, and OTA cannot be tested on a simulator/emulator.
+- Android: JDK 17, Android SDK 36.
+- iOS: macOS + Xcode, CocoaPods, and an Apple Developer account for device signing.
+
+No backend keys or Firebase config files are required to build and run. Third-party login and crash reporting are optional (see below) and simply stay disabled when not configured.
+
+### Quick start
+
+From the repository root:
+
+```bash
+cd app
+flutter pub get
+flutter devices        # confirm your phone is listed
+flutter run            # pick your device
+```
+
+Out of the box the app targets the production backend and uses **email login**. Core flows — BLE scan/connect, recording, transfer, and OTA — work on a real device without any extra configuration.
+
+### Optional build-time configuration
+
+These are injected with `--dart-define` and default to empty (the related feature is disabled if omitted):
+
+| Key | Purpose | Default |
+|-----|---------|---------|
+| `APP_ENV` | Environment bucket: `release` / `test` / `dev` (drives backend + OAuth + Sentry selection) | `release` |
+| `AUTH_BASE_URL` | SenseCraft auth host override | prod host (release); placeholder for test/dev |
+| `PAAS_BASE_URL` | SenseCAP PaaS host override | prod host (release); placeholder for test/dev |
+| `API_BASE_URL` | Business REST host override | per-env host in `server_providers.dart` |
+| `GOOGLE_WEB_CLIENT_ID_PROD` / `GOOGLE_WEB_CLIENT_ID_DEV` | Google Sign-In web client id (also set `default_web_client_id` in `android/app/src/main/res/values/strings.xml` and the reversed client id in iOS) | empty (Google login disabled) |
+| `GITHUB_CLIENT_ID` | GitHub OAuth App client id (callback `sensecraftvoice://oauth-callback`) | empty (GitHub login disabled) |
+| `SENTRY_DSN` | Crash reporting DSN (only active in a release build with `APP_ENV=release`) | empty (disabled) |
+| `API_KEY` + `API_BASE` | In-app feedback workflow key + host | empty (feedback disabled) |
+
+Example — run against a dev backend with Google/GitHub login enabled:
+
+```bash
+flutter run \
+  --dart-define=APP_ENV=dev \
+  --dart-define=AUTH_BASE_URL=https://your-auth-host/authapi/ \
+  --dart-define=PAAS_BASE_URL=https://your-paas-host/portalapi/ \
+  --dart-define=API_BASE_URL=https://your-business-host/ \
+  --dart-define=GOOGLE_WEB_CLIENT_ID_DEV=xxxxx.apps.googleusercontent.com \
+  --dart-define=GITHUB_CLIENT_ID=Iv1xxxxxxxx
+```
+
+### iOS signing
+
+Open `ios/Runner.xcworkspace` in Xcode, select **your own** development Team (no Team is committed), and enable the **Hotspot Configuration** capability for the App ID so the phone can auto-join the device Wi-Fi AP.
+
+### Build release artifacts
+
+```bash
+flutter build apk --release        # Android
+flutter build ipa                  # iOS (requires signing)
+```
+
+---
+
 ## Documentation
 
 See **[docs/README.md](docs/README.md)** for the full index and reading order. Common entries:
@@ -53,13 +116,12 @@ See **[docs/README.md](docs/README.md)** for the full index and reading order. C
 |------|------|
 | [Design framework & architecture](docs/project_design_framework.md) | Layering, architecture choices, data flow, App↔backend interface contracts |
 | [Recording & sync flow](docs/recording_flow.md) | Record → device sync (with resume, indexing) → transcribe → summarize → playback |
-| [Device BLE protocol](../../sensecraft-voice/docs/DEVICE_BLE_PROTOCOL.md) | BLE UUIDs, AT commands, return-value conventions (authoritative SDK doc) |
+| [Device BLE protocol](../sdk/flutter/docs/DEVICE_BLE_PROTOCOL.md) | BLE UUIDs, AT commands, return-value conventions (authoritative SDK doc) |
 | [OTA firmware update](docs/ota_firmware_update.md) | Firmware update steps and error handling |
 | [Route reference](docs/app_routes.md) | Route paths and their pages |
 | [Local database](docs/local_db.md) | SQLite table schema and business logic |
 | [API reference](docs/api_reference.md) | Backend APIs called by the app |
 | [AI vendor parameters](docs/ai_provider_params.md) | STT/LLM per-vendor field mapping |
-| [China Android store](docs/china_android_store.md) | Privacy dialog, hiding third-party login, local run / packaging |
 
 ---
 
