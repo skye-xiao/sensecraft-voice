@@ -96,6 +96,17 @@ class UserProfileController extends Notifier<UserProfile?> {
   /// for a previous account are never applied on top of the new one.
   int _generation = 0;
 
+  /// Last SenseCraft **org** user_id seen from `getUserOrgInfo`.
+  ///
+  /// The *business* login id (our DB key) can stay stable across an account
+  /// delete + re-register under the same third-party identity — notably Apple,
+  /// whose `sub` is permanent — while the **org** user_id and avatar are reset
+  /// server-side. Tracking the org id lets us detect that reset and drop the
+  /// deleted account's avatar instead of resurrecting it via the "keep previous
+  /// avatar" fallback. In-memory only; seeded from the cached avatar URL after
+  /// a cold start (see [_orgIdFromAvatarUrl]).
+  int _lastOrgUserId = 0;
+
   @override
   UserProfile? build() => UserProfileStore.cached;
 
@@ -267,22 +278,48 @@ class UserProfileController extends Notifier<UserProfile?> {
     // yields 401 (e.g. `jti` type mismatch) and can clear [AuthTokenStore].
     if (backend == AuthBackend.senseCraft) {
       final prevAvatar = state?.avatarUrl;
+      // Seed the org id from the cached avatar after a cold start, so a
+      // delete + relogin that spanned an app restart is still detected.
+      if (_lastOrgUserId == 0) {
+        _lastOrgUserId = _orgIdFromAvatarUrl(state?.avatarUrl);
+      }
       final me = await ref.read(authRepositoryProvider).getMe();
       if (gen != _generation) return state;
       // SenseCraft org user_id is different from the Voice business user id.
+      // A changed org id means the account was reset/recreated server-side
+      // (e.g. deleted then re-registered under the same Apple identity, which
+      // keeps the business login id — our DB key — stable). Treat it as a new
+      // identity so the deleted account's avatar/profile is never carried over.
+      final orgId = me.id;
+      final identityReset =
+          _lastOrgUserId != 0 && orgId > 0 && orgId != _lastOrgUserId;
+      if (orgId > 0) _lastOrgUserId = orgId;
       // Generation guards stale requests; merge this profile onto current id.
-      final merged = _mergeProfilePreservingDbId(current: state, fetched: me);
+      final merged = _mergeProfilePreservingDbId(
+        current: state,
+        fetched: me,
+        identityReset: identityReset,
+      );
       if (gen != _generation) return state;
       if (_sameProfile(state, merged)) return state;
       state = merged;
       unawaited(UserProfileStore.save(merged));
       // Only evict/bump when the URL actually changes — otherwise the home
       // avatar blinks (cache miss → blank → re-download) on every tab entry.
-      if (_avatarChanged(prevAvatar, merged.avatarUrl)) {
+      // On an identity reset always bust so a deleted account's bitmap can't
+      // linger in the image caches.
+      if (identityReset || _avatarChanged(prevAvatar, merged.avatarUrl)) {
         _evictAvatarCache(prevAvatar);
         _evictAvatarCache(merged.avatarUrl);
         AvatarDecodedCache.clear();
         _bumpAvatarRevision();
+        if (identityReset) {
+          try {
+            PaintingBinding.instance.imageCache.clear();
+          } catch (_) {
+            // ignore
+          }
+        }
       }
       return merged;
     }
@@ -325,8 +362,12 @@ class UserProfileController extends Notifier<UserProfile?> {
   UserProfile _mergeProfilePreservingDbId({
     required UserProfile? current,
     required UserProfile fetched,
+    bool identityReset = false,
   }) {
-    final sameAccount = current == null || _isSameUserId(current, fetched);
+    // An identity reset (org user_id changed) forces a fresh profile even when
+    // the business login id — hence [_isSameUserId] — is unchanged.
+    final sameAccount = !identityReset &&
+        (current == null || _isSameUserId(current, fetched));
     final keepId = (current != null && current.id > 0) ? current.id : fetched.id;
     return UserProfile(
       id: keepId,
@@ -342,13 +383,33 @@ class UserProfileController extends Notifier<UserProfile?> {
       // on home → settings while a background refresh runs. SenseCraft also
       // returns a new timestamp query on every request; retain the current URL
       // when the underlying avatar resource is unchanged so image caches hit.
-      avatarUrl: _preferStableAvatarUrl(fetched.avatarUrl, current?.avatarUrl),
+      // Only within the same identity: a different/reset account must take the
+      // fetched avatar (empty → default) and never resurrect the previous one.
+      avatarUrl: sameAccount
+          ? _preferStableAvatarUrl(fetched.avatarUrl, current?.avatarUrl)
+          : _trimToNull(fetched.avatarUrl),
       provider: sameAccount
           ? _preferNonEmpty(fetched.provider, current?.provider)
           : _trimToNull(fetched.provider),
       role: fetched.role ?? (sameAccount ? current?.role : null),
       hasPwd: fetched.hasPwd ?? (sameAccount ? current?.hasPwd : null),
     );
+  }
+
+  /// SenseCraft avatar URLs embed the org user_id as a numeric path segment
+  /// (`.../refer/avatar/{orgUserId}?timestamp=...`). Used to seed
+  /// [_lastOrgUserId] after a cold start where only the cached profile (not the
+  /// org id) is restored. Returns 0 when no numeric segment is present.
+  int _orgIdFromAvatarUrl(String? url) {
+    final raw = (url ?? '').trim();
+    if (raw.isEmpty) return 0;
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return 0;
+    for (final seg in uri.pathSegments.reversed) {
+      final n = int.tryParse(seg);
+      if (n != null && n > 0) return n;
+    }
+    return 0;
   }
 
   String? _preferNonEmpty(String? primary, String? fallback) {
