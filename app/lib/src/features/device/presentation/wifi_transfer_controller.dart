@@ -266,7 +266,10 @@ class WifiTransferController extends Notifier<WifiTransferState> {
   /// no-internet device AP. Android OEMs often unbind mid-transfer and route
   /// UDP via cellular / another Wi‑Fi; re-binding keeps the sync path alive.
   Timer? _forceWifiKeepAlive;
-  static const Duration _forceWifiKeepAliveInterval = Duration(seconds: 10);
+  // Short cadence: some OEMs route off the no-internet AP within ~10s, so re-bind
+  // often to recover fast. The tick itself is logged only on failure (empty
+  // reason) to avoid flooding the log file at this frequency.
+  static const Duration _forceWifiKeepAliveInterval = Duration(seconds: 3);
 
   /// Mid-download stall flag. Set when [onOverallProgress] stops updating for
   /// [_wifiProgressStallTimeout] — does **not** ping the shared UDP socket
@@ -317,7 +320,8 @@ class WifiTransferController extends Notifier<WifiTransferState> {
     // Immediate bind, then every [_forceWifiKeepAliveInterval].
     unawaited(_rebindForceWifiUsage(reason: 'keep-alive start'));
     _forceWifiKeepAlive = Timer.periodic(_forceWifiKeepAliveInterval, (_) {
-      unawaited(_rebindForceWifiUsage(reason: 'keep-alive tick'));
+      // Empty reason → only failures are logged, not every 3s tick.
+      unawaited(_rebindForceWifiUsage());
       // Keep handoff TTL alive while Wi‑Fi is still working.
       ref.read(deviceControllerProvider.notifier).touchWifiHandoff();
     });
