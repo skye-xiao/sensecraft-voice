@@ -140,20 +140,6 @@ class SentryService {
     );
   }
 
-  static Future<void> captureBootstrapFailure(
-    String step,
-    Object error,
-    StackTrace stackTrace,
-  ) async {
-    if (SentryNoise.isExpected(error, stackTrace)) return;
-    await captureMessage(
-      'Bootstrap step failed: $step',
-      level: SentryLevel.warning,
-      extras: {'step': step, 'error': error.toString()},
-      relatedError: error,
-    );
-  }
-
   static Future<void> captureLoginFailure(Object error, {String? method}) async {
     if (SentryNoise.isExpected(error)) return;
     await captureMessage(

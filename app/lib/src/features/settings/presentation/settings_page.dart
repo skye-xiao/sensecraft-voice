@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,16 +5,17 @@ import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_radii.dart';
 import '../../../core/widgets/app_pill_button.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../core/widgets/app_toasts.dart';
 import '../../../core/l10n/app_locale_provider.dart';
 import '../../../core/l10n/app_localizations.dart';
 import 'settings_widgets.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../auth/presentation/auth_providers.dart';
-import '../../auth/presentation/third_party_login_provider.dart';
 import '../../../core/server/auth/user_profile_provider.dart';
 import '../../../core/widgets/user_avatar_image.dart';
 import '../data/app_info_provider.dart';
+import '../data/app_update_service.dart';
 import '../data/push_provider.dart';
 import '../../../core/cache/app_cache.dart';
 import '../../../core/legal/legal_urls.dart';
@@ -39,7 +38,9 @@ class SettingsPage extends ConsumerWidget {
     final me = ref.watch(userProfileProvider);
     final versionAsync = ref.watch(appVersionProvider);
     final cacheSizeAsync = ref.watch(cacheSizeBytesProvider);
-    final displayName = ((me?.name ?? '').trim().isNotEmpty) ? (me?.name ?? '').trim() : '—';
+    final canCheckAppUpdates = ref.watch(appUpdateCanCheckProvider);
+    final displayName =
+        ((me?.name ?? '').trim().isNotEmpty) ? (me?.name ?? '').trim() : '—';
     final displayEmail = ((me?.email ?? session.email ?? '').trim().isNotEmpty)
         ? (me?.email ?? session.email ?? '').trim()
         : '—';
@@ -53,7 +54,9 @@ class SettingsPage extends ConsumerWidget {
         title: Text(l10n.settings),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).maybePop()),
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).maybePop()),
         actions: _showBellButton
             ? [
                 IconButton(
@@ -66,7 +69,8 @@ class SettingsPage extends ConsumerWidget {
                         right: -1,
                         top: -1,
                         child: DecoratedBox(
-                          decoration: BoxDecoration(color: AppColors.danger, shape: BoxShape.circle),
+                          decoration: BoxDecoration(
+                              color: AppColors.danger, shape: BoxShape.circle),
                           child: SizedBox(width: 6, height: 6),
                         ),
                       ),
@@ -100,7 +104,9 @@ class SettingsPage extends ConsumerWidget {
                 value: langLabel,
                 onTap: () => context.push('/settings/language'),
               ),
-              if (_showPushNotifications) _PushNotificationsTile(primary: Theme.of(context).colorScheme.primary),
+              if (_showPushNotifications)
+                _PushNotificationsTile(
+                    primary: Theme.of(context).colorScheme.primary),
             ],
           ),
           SettingsSectionLabel(l10n.security),
@@ -124,22 +130,11 @@ class SettingsPage extends ConsumerWidget {
                 title: l10n.followUs,
                 onTap: () => context.push('/settings/follow-us'),
               ),
-              SettingsTile(title: l10n.helpFeedback, onTap: () => context.push('/settings/help-feedback')),
+              SettingsTile(
+                  title: l10n.helpFeedback,
+                  onTap: () => context.push('/settings/help-feedback')),
             ],
           ),
-          if (Platform.isAndroid) ...[
-            SettingsSectionLabel(l10n.loginOptions),
-            SettingsCard(
-              children: [
-                SettingsSwitchTile(
-                  title: l10n.thirdPartyLogin,
-                  value: ref.watch(showThirdPartyLoginProvider),
-                  onChanged: (v) =>
-                      ref.read(showThirdPartyLoginProvider.notifier).setEnabled(v),
-                ),
-              ],
-            ),
-          ],
           SettingsSectionLabel(l10n.about),
           SettingsCard(
             children: [
@@ -151,6 +146,11 @@ class SettingsPage extends ConsumerWidget {
                   error: (_, __) => '—',
                 ),
               ),
+              if (canCheckAppUpdates)
+                SettingsTile(
+                  title: l10n.checkForUpdates,
+                  onTap: () => _checkForAppUpdates(context, ref),
+                ),
               SettingsTile(
                 title: l10n.clearCache,
                 value: cacheSizeAsync.when(
@@ -164,7 +164,8 @@ class SettingsPage extends ConsumerWidget {
                     context: context,
                     barrierDismissible: false,
                     useRootNavigator: true,
-                    builder: (_) => const Center(child: CircularProgressIndicator()),
+                    builder: (_) =>
+                        const Center(child: CircularProgressIndicator()),
                   );
                   try {
                     await clearAppCache();
@@ -174,7 +175,10 @@ class SettingsPage extends ConsumerWidget {
                     AppToasts.showSuccess(context, message: l10n.cacheCleared);
                   } catch (_) {
                     nav.pop();
-                    if (context.mounted) AppToasts.showError(context, message: l10n.clearCacheFailed);
+                    if (context.mounted) {
+                      AppToasts.showError(context,
+                          message: l10n.clearCacheFailed);
+                    }
                   }
                 },
               ),
@@ -209,7 +213,8 @@ class SettingsPage extends ConsumerWidget {
                 showDialog<void>(
                   context: context,
                   barrierDismissible: false,
-                  builder: (_) => const Center(child: CircularProgressIndicator()),
+                  builder: (_) =>
+                      const Center(child: CircularProgressIndicator()),
                 );
                 try {
                   // Route via [authRepositoryProvider] so SC-mode hits SC's
@@ -226,12 +231,58 @@ class SettingsPage extends ConsumerWidget {
                 if (!context.mounted) return;
                 context.go('/login');
               },
-              textStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: AppTypography.s16),
+              textStyle: const TextStyle(
+                  fontWeight: FontWeight.w500, fontSize: AppTypography.s16),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+Future<void> _checkForAppUpdates(BuildContext context, WidgetRef ref) async {
+  final l10n = AppLocalizations.of(context)!;
+  final handle = AppDialogs.showLoading(
+    context,
+    message: l10n.checkingForUpdates,
+  );
+  try {
+    final service = ref.read(appUpdateServiceProvider);
+    final update = await service.checkForUpdate();
+    handle.close();
+    if (!context.mounted) return;
+
+    if (update == null || !update.updateAvailable) {
+      return;
+    }
+
+    final notes = update.releaseNotes;
+    final notesText =
+        notes.isEmpty ? '' : '\n\n${notes.map((item) => '• $item').join('\n')}';
+    final ok = await AppDialogs.showConfirm(
+      context,
+      title: l10n.updateAvailableTitle,
+      message: '${l10n.latest}: ${update.latestVersionName}$notesText',
+      cancelText: l10n.updateLater,
+      confirmText: l10n.updateNow,
+      barrierDismissible: true,
+    );
+    if (!ok || !context.mounted) return;
+
+    await service.openUpdateUrl(update.downloadUrl);
+  } on AppUpdateServiceException catch (e) {
+    handle.close();
+    if (!context.mounted) return;
+    if (e.message.contains('not configured')) {
+      AppToasts.showError(context, message: l10n.updateServiceNotConfigured);
+    } else {
+      AppToasts.showError(context, message: e.message);
+    }
+  } catch (_) {
+    handle.close();
+    if (!context.mounted) return;
+    AppToasts.showError(context, message: l10n.updateCheckFailed);
   }
 }
 
@@ -293,7 +344,8 @@ class _ProfileHeader extends StatelessWidget {
                               color: AppColors.textPlaceholder,
                             ),
                           )
-                        : const Icon(Icons.person_outline, size: 46, color: AppColors.textPlaceholder),
+                        : const Icon(Icons.person_outline,
+                            size: 46, color: AppColors.textPlaceholder),
                   ),
                   Positioned(
                     right: 4,
@@ -306,15 +358,24 @@ class _ProfileHeader extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(color: AppColors.surface, width: 3),
                       ),
-                      child: const Icon(Icons.edit, size: 18, color: AppColors.surface),
+                      child: const Icon(Icons.edit,
+                          size: 18, color: AppColors.surface),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              Text(name, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
+              Text(name,
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
-              Text(email, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textTertiary)),
+              Text(email,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: AppColors.textTertiary)),
             ],
           ),
         ),
@@ -339,7 +400,8 @@ class _PushNotificationsTile extends ConsumerWidget {
           final granted = await requestNotificationPermission();
           await ref.read(pushEnabledProvider.notifier).setEnabled(granted);
           if (context.mounted && !granted) {
-            AppToasts.showInfo(context, message: l10n.notificationPermissionDenied);
+            AppToasts.showInfo(context,
+                message: l10n.notificationPermissionDenied);
           }
         } else {
           await ref.read(pushEnabledProvider.notifier).setEnabled(false);
@@ -348,4 +410,3 @@ class _PushNotificationsTile extends ConsumerWidget {
     );
   }
 }
-

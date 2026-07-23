@@ -123,6 +123,67 @@ Future<void> openPermissionSettings() async {
   await openAppSettings();
 }
 
+/// Location-related reason a BLE scan likely found nothing on Android.
+///
+/// BLE scanning on Android <= 11 (and some OEM ROMs even on 12+) requires the
+/// system location switch to be on and, on some devices, location permission
+/// granted — even though this app declares `BLUETOOTH_SCAN` without deriving
+/// location. This enum lets the UI explain an otherwise-silent empty scan.
+enum ScanLocationIssue {
+  /// Location looks fine, or the platform is iOS (not applicable).
+  none,
+
+  /// The app lacks location permission.
+  permissionDenied,
+
+  /// The system location master switch is off.
+  serviceOff,
+}
+
+/// Best-effort diagnosis of a location-related cause for an empty BLE scan.
+///
+/// Returns [ScanLocationIssue.none] on iOS or when location looks ready. Never
+/// throws. Intended to be called only after a scan finished with no results, so
+/// devices whose scans work (e.g. stock Android 12+) are never nagged.
+Future<ScanLocationIssue> diagnoseScanLocationIssue() async {
+  if (!Platform.isAndroid) return ScanLocationIssue.none;
+  try {
+    final service = await Permission.location.serviceStatus;
+    if (service == ServiceStatus.disabled) {
+      return ScanLocationIssue.serviceOff;
+    }
+    final perm = await Permission.locationWhenInUse.status;
+    if (!(perm.isGranted || perm.isLimited)) {
+      return ScanLocationIssue.permissionDenied;
+    }
+  } catch (_) {}
+  return ScanLocationIssue.none;
+}
+
+/// Open the system location settings so the user can toggle the master switch.
+Future<void> openLocationServiceSettings() async {
+  try {
+    await AppSettings.openAppSettings(type: AppSettingsType.location);
+  } catch (_) {
+    await openAppSettings();
+  }
+}
+
+/// Request location permission for scanning. Opens app settings when the user
+/// has permanently denied it. Returns whether it is now granted.
+Future<bool> requestScanLocationPermission() async {
+  try {
+    final res = await Permission.locationWhenInUse.request();
+    if (res.isPermanentlyDenied) {
+      await openAppSettings();
+      return false;
+    }
+    return res.isGranted || res.isLimited;
+  } catch (_) {
+    return false;
+  }
+}
+
 const _kSettingsChannel = MethodChannel('cc.seeed.voice/settings');
 
 /// Open system Bluetooth settings (or system Settings root as fallback).

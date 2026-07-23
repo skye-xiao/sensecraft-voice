@@ -42,6 +42,15 @@ class SentryConfig {
     options.sendDefaultPii = false;
     options.tracesSampleRate = 0.0;
     options.enableAutoSessionTracking = enabled;
+    // Drop high-volume auto breadcrumbs. We keep only the manual breadcrumbs we
+    // add ourselves (wifi/ota/merge) which carry the useful transfer context.
+    // - print: AppLog (logger pkg) routes through debugPrint, so every log line
+    //   would otherwise become a breadcrumb in release builds.
+    // - user interaction / native system events add little to crash triage here.
+    options.enablePrintBreadcrumbs = false;
+    options.enableUserInteractionBreadcrumbs = false;
+    options.enableUserInteractionTracing = false;
+    options.enableAutoNativeBreadcrumbs = false;
     options.beforeSend = _beforeSend;
   }
 

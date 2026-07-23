@@ -13,6 +13,7 @@ import '../../../../app/theme/app_radii.dart';
 import '../../../../core/widgets/app_bottom_sheet.dart';
 import '../../../../core/widgets/app_pill_button.dart';
 import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/app_dialogs.dart';
 import '../../../settings/data/permissions_provider.dart';
 import '../bluetooth_connect_gate.dart';
 import '../device_controller.dart';
@@ -64,6 +65,10 @@ class _DeviceConnectSheetState extends ConsumerState<DeviceConnectSheet>
   /// Prevents double-tap connect / overlapping connect attempts.
   bool _connectInFlight = false;
 
+  /// Show the location advisory at most once per sheet opening, so lifecycle
+  /// resumes / adapter-on auto-rescans don't nag the user repeatedly.
+  bool _locationAdvised = false;
+
   @override
   void initState() {
     super.initState();
@@ -114,6 +119,44 @@ class _DeviceConnectSheetState extends ConsumerState<DeviceConnectSheet>
     final st = ref.read(deviceControllerProvider);
     if (!st.isScanning) {
       await ctrl.startScan();
+    }
+  }
+
+  /// After an empty scan, explain (once) if location is the likely blocker and
+  /// offer a one-tap fix, then rescan. No-op on iOS or when devices were found.
+  Future<void> _maybeAdviseLocation() async {
+    if (_locationAdvised || !mounted || _mode != _SheetMode.scan) return;
+    if (!Platform.isAndroid) return;
+
+    final st = ref.read(deviceControllerProvider);
+    if (isBluetoothAdapterDisabled(st.adapterState)) return;
+    if (st.results.any(_isClipNamedDevice)) return; // found a device, all good
+
+    final issue = await diagnoseScanLocationIssue();
+    if (issue == ScanLocationIssue.none || !mounted) return;
+    _locationAdvised = true;
+
+    final l10n = AppLocalizations.of(context)!;
+    final message = issue == ScanLocationIssue.serviceOff
+        ? l10n.scanLocationServiceOffMessage
+        : l10n.scanLocationPermissionMessage;
+
+    final proceed = await AppDialogs.showConfirm(
+      context,
+      title: l10n.scanLocationRequiredTitle,
+      message: message,
+      cancelText: l10n.cancel,
+      confirmText: l10n.openSettingsAction,
+    );
+    if (!proceed || !mounted) return;
+
+    if (issue == ScanLocationIssue.serviceOff) {
+      await openLocationServiceSettings();
+    } else {
+      final granted = await requestScanLocationPermission();
+      if (granted && mounted && _mode == _SheetMode.scan) {
+        unawaited(ref.read(deviceControllerProvider.notifier).rescan());
+      }
     }
   }
 
@@ -196,6 +239,19 @@ class _DeviceConnectSheetState extends ConsumerState<DeviceConnectSheet>
             next == BluetoothAdapterState.on &&
             !ref.read(deviceControllerProvider).isScanning) {
           unawaited(_ensureScan());
+        }
+      },
+    );
+
+    // When a scan cycle finishes (isScanning true -> false) with no Clip device
+    // found, check whether location (permission / system switch) is the likely
+    // cause and guide the user. Only fires on empty results, so successful
+    // scans (incl. stock Android 12+) are never interrupted.
+    ref.listen(
+      deviceControllerProvider.select((s) => s.isScanning),
+      (prev, next) {
+        if (prev == true && next == false) {
+          unawaited(_maybeAdviseLocation());
         }
       },
     );

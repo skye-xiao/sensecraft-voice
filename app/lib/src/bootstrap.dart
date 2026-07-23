@@ -19,7 +19,6 @@ import 'core/server/auth/user_profile_store.dart';
 import 'core/server/sensecraft_auth/sensecraft_auth_token_store.dart';
 import 'features/ai_config/presentation/guide/ai_config_guide_helper.dart';
 import 'features/auth/data/auth_session_store.dart';
-import 'features/auth/data/third_party_login_store.dart';
 import 'features/settings/data/push_store.dart' as push_store;
 
 Future<void> bootstrap() async {
@@ -64,8 +63,9 @@ Future<void> bootstrap() async {
     } on TimeoutException {
       AppLog.w('bootstrap $name timeout, continue');
     } catch (e, st) {
+      // Bootstrap failures are non-fatal (each step degrades gracefully) and
+      // are surfaced via logs only — intentionally not reported to Sentry.
       AppLog.e('bootstrap $name failed', e, st);
-      unawaited(SentryService.captureBootstrapFailure(name, e, st));
     }
   }
 
@@ -73,8 +73,6 @@ Future<void> bootstrap() async {
   await initStep('ai_config_guide_scope', AiConfigGuideHelper.syncInstallScope);
   // First-launch privacy consent (Chinese app stores require Agree/Refuse before use).
   await initStep('privacy_consent', PrivacyPolicyConsentStore.init);
-  // Android third-party login visibility (domestic builds hide Google/GitHub by default).
-  await initStep('third_party_login', ThirdPartyLoginStore.init);
   // Preload auth session so cold start can go straight home.
   await initStep('auth_session', AuthSessionStore.init);
   // Preload API token for automatic Authorization headers.

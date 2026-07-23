@@ -61,8 +61,7 @@ class AppLocalizations {
   String get email =>
       _localizedValues[locale.languageCode]?['email'] ?? 'EMAIL';
   String get emailHint =>
-      _localizedValues[locale.languageCode]?['emailHint'] ??
-      'you@example.com';
+      _localizedValues[locale.languageCode]?['emailHint'] ?? 'you@example.com';
   String get emailExample =>
       _localizedValues[locale.languageCode]?['emailExample'] ??
       'name@example.com';
@@ -99,7 +98,8 @@ class AppLocalizations {
   String get privacyConsentAgree =>
       _localizedValues[locale.languageCode]?['privacyConsentAgree'] ?? 'Agree';
   String get privacyConsentRefuse =>
-      _localizedValues[locale.languageCode]?['privacyConsentRefuse'] ?? 'Refuse';
+      _localizedValues[locale.languageCode]?['privacyConsentRefuse'] ??
+      'Refuse';
   String get loginOptions =>
       _localizedValues[locale.languageCode]?['loginOptions'] ?? 'Login';
   String get thirdPartyLogin =>
@@ -504,6 +504,25 @@ class AppLocalizations {
   String get checkForUpdates =>
       _localizedValues[locale.languageCode]?['checkForUpdates'] ??
       'Check for Updates';
+  String get checkingForUpdates =>
+      _localizedValues[locale.languageCode]?['checkingForUpdates'] ??
+      'Checking for updates...';
+  String get updateAvailableTitle =>
+      _localizedValues[locale.languageCode]?['updateAvailableTitle'] ??
+      'Update Available';
+  String get updateNow =>
+      _localizedValues[locale.languageCode]?['updateNow'] ?? 'Update Now';
+  String get updateLater =>
+      _localizedValues[locale.languageCode]?['updateLater'] ?? 'Later';
+  String get noUpdateAvailable =>
+      _localizedValues[locale.languageCode]?['noUpdateAvailable'] ??
+      'You are already on the latest version.';
+  String get updateCheckFailed =>
+      _localizedValues[locale.languageCode]?['updateCheckFailed'] ??
+      'Failed to check for updates.';
+  String get updateServiceNotConfigured =>
+      _localizedValues[locale.languageCode]?['updateServiceNotConfigured'] ??
+      'Update service is not configured.';
   String versionLabel(String v) =>
       (_localizedValues[locale.languageCode]?['versionLabel'] ?? 'Version {v}')
           .replaceAll('{v}', v);
@@ -1180,11 +1199,10 @@ class AppLocalizations {
   String get aiDataSharingConsentIntro =>
       _localizedValues[locale.languageCode]?['aiDataSharingConsentIntro'] ??
       'To use transcription or summary generation, this app needs to send selected recording data to cloud AI services.';
-  String aiDataSharingConsentShortMessage(String recipients) =>
-      (_localizedValues[locale.languageCode]
-                  ?['aiDataSharingConsentShortMessage'] ??
-              'To use transcription or summary, the app will send the selected recording audio, transcript text, and necessary device/recording information to {recipients} for AI processing. Please confirm whether you agree.')
-          .replaceAll('{recipients}', recipients);
+  String aiDataSharingConsentShortMessage(String recipients) => (_localizedValues[
+              locale.languageCode]?['aiDataSharingConsentShortMessage'] ??
+          'To use transcription or summary, the app will send the selected recording audio, transcript text, and necessary device/recording information to {recipients} for AI processing. Please confirm whether you agree.')
+      .replaceAll('{recipients}', recipients);
   String get aiDataSharingConsentAudio =>
       _localizedValues[locale.languageCode]?['aiDataSharingConsentAudio'] ??
       'Audio data: the selected recording audio may be uploaded for speech-to-text processing.';
@@ -1466,6 +1484,17 @@ class AppLocalizations {
   String get openSettingsAction =>
       _localizedValues[locale.languageCode]?['openSettingsAction'] ??
       'Open Settings';
+  String get scanLocationRequiredTitle =>
+      _localizedValues[locale.languageCode]?['scanLocationRequiredTitle'] ??
+      'Location needed to find devices';
+  String get scanLocationServiceOffMessage =>
+      _localizedValues[locale.languageCode]?['scanLocationServiceOffMessage'] ??
+      "Your phone's location switch is off. Android needs location turned on "
+          'to discover Bluetooth devices. Turn it on, then scan again.';
+  String get scanLocationPermissionMessage =>
+      _localizedValues[locale.languageCode]?['scanLocationPermissionMessage'] ??
+      'This app needs location permission to discover Bluetooth devices on your '
+          'Android version. Grant it, then scan again.';
   String get opusNotSupported =>
       _localizedValues[locale.languageCode]?['opusNotSupported'] ??
       'Current device does not support Opus encoding';
@@ -1848,7 +1877,8 @@ class AppLocalizations {
       _localizedValues[locale.languageCode]?['unbindIosForgetReminderTitle'] ??
       'Device unbound';
   String get unbindIosForgetReminderMessage =>
-      _localizedValues[locale.languageCode]?['unbindIosForgetReminderMessage'] ??
+      _localizedValues[locale.languageCode]
+          ?['unbindIosForgetReminderMessage'] ??
       'Pairing on the device has been cleared, but the phone usually still keeps the old Bluetooth record.\n\n'
           'Before you reconnect, open Settings > Bluetooth, find this device, choose Forget / Unpair, then return to the app and add it again.';
   String get unbinding =>
@@ -1927,7 +1957,8 @@ class AppLocalizations {
       _localizedValues[locale.languageCode]?['connectionFailedUnpairHint'] ??
       'If it still fails, open the phone\'s Bluetooth settings, Forget this device, then add it again.';
   String get connectionFailedIosForgetTitle =>
-      _localizedValues[locale.languageCode]?['connectionFailedIosForgetTitle'] ??
+      _localizedValues[locale.languageCode]
+          ?['connectionFailedIosForgetTitle'] ??
       'Forget device in Bluetooth settings';
   String get forgetDeviceInSettingsAction =>
       _localizedValues[locale.languageCode]?['forgetDeviceInSettingsAction'] ??
@@ -1985,6 +2016,7 @@ class AppLocalizations {
       _localizedValues[locale.languageCode]?['retry'] ?? 'Retry';
   String get connecting =>
       _localizedValues[locale.languageCode]?['connecting'] ?? 'Connecting...';
+
   /// Android-only hint while the system BLE pairing dialog may be showing.
   String get androidPairingConfirmHint =>
       _localizedValues[locale.languageCode]?['androidPairingConfirmHint'] ??
@@ -3548,6 +3580,13 @@ class AppLocalizations {
       'microphone': 'Microphone',
       'notifications': 'Notifications',
       'checkForUpdates': 'Check for Updates',
+      'checkingForUpdates': 'Checking for updates...',
+      'updateAvailableTitle': 'Update Available',
+      'updateNow': 'Update Now',
+      'updateLater': 'Later',
+      'noUpdateAvailable': 'You are already on the latest version.',
+      'updateCheckFailed': 'Failed to check for updates.',
+      'updateServiceNotConfigured': 'Update service is not configured.',
       'versionLabel': 'Version {v}',
       'cacheUsedLabel': '{v} used',
       'aboutCopyright': '© 2026 SenseCraft Voice. ALL RIGHTS RESERVED.',
@@ -3943,6 +3982,13 @@ class AppLocalizations {
       'bluetoothPermissionRequiredForConnectMessage':
           'Allow Bluetooth access for this app in Settings to connect or add a device.',
       'openSettingsAction': 'Open Settings',
+      'scanLocationRequiredTitle': 'Location needed to find devices',
+      'scanLocationServiceOffMessage':
+          "Your phone's location switch is off. Android needs location turned "
+              'on to discover Bluetooth devices. Turn it on, then scan again.',
+      'scanLocationPermissionMessage':
+          'This app needs location permission to discover Bluetooth devices on '
+              'your Android version. Grant it, then scan again.',
       'opusNotSupported': 'Current device does not support Opus encoding',
       'recordingSavedLocally':
           'Recording saved locally (for server API testing)',
@@ -4695,8 +4741,7 @@ class AppLocalizations {
       'agreeToTermsRequired': '请先阅读并同意用户协议与隐私政策',
       'privacyConsentTitle': '隐私政策',
       'privacyConsentBodyPrefix': '欢迎使用 SenseCraft Voice。请仔细阅读',
-      'privacyConsentBodySuffix':
-          '。点击「同意」即表示您已阅读并同意上述内容；若您不同意，请点击「拒绝」并退出应用。',
+      'privacyConsentBodySuffix': '。点击「同意」即表示您已阅读并同意上述内容；若您不同意，请点击「拒绝」并退出应用。',
       'privacyConsentAgree': '同意',
       'privacyConsentRefuse': '拒绝',
       'loginOptions': '登录',
@@ -4856,6 +4901,13 @@ class AppLocalizations {
       'microphone': '麦克风',
       'notifications': '通知',
       'checkForUpdates': '检查更新',
+      'checkingForUpdates': '正在检查更新...',
+      'updateAvailableTitle': '发现新版本',
+      'updateNow': '立即更新',
+      'updateLater': '稍后',
+      'noUpdateAvailable': '当前已经是最新版本。',
+      'updateCheckFailed': '检查更新失败。',
+      'updateServiceNotConfigured': '更新服务尚未配置。',
       'versionLabel': '版本 {v}',
       'cacheUsedLabel': '已使用 {v}',
       'aboutCopyright': '© 2026 Seeed Technology Inc. 保留所有权利。',
@@ -5186,6 +5238,11 @@ class AppLocalizations {
       'bluetoothPermissionRequiredForConnectMessage':
           '请在设置中允许本 App 使用蓝牙后再连接或添加设备。',
       'openSettingsAction': '前往设置',
+      'scanLocationRequiredTitle': '需要定位才能扫描设备',
+      'scanLocationServiceOffMessage':
+          '手机的定位总开关已关闭。Android 需要开启定位才能扫描到蓝牙设备。请开启后重新扫描。',
+      'scanLocationPermissionMessage':
+          '在你的 Android 版本上，扫描蓝牙设备需要定位权限。请授予后重新扫描。',
       'opusNotSupported': '当前设备不支持 Opus 编码',
       'recordingSavedLocally': '录音已保存到本地（可用于测试服务器接口）',
       'noDeviceConnected': '未连接设备',
@@ -5309,9 +5366,8 @@ class AppLocalizations {
       'unbindDeviceMessage':
           '将断开连接；若当前已连接，会清除设备上的配对信息，并从本 App 设备列表中移除。不会删除设备上的录音。',
       'unbindIosForgetReminderTitle': '已解绑',
-      'unbindIosForgetReminderMessage':
-          '设备端配对信息已清除，但手机系统蓝牙里通常仍会保留该设备。\n\n'
-              '重新连接前，请打开「设置 > 蓝牙」，找到该设备并选择「忽略此设备 / 取消配对」，再返回 App 重新添加。',
+      'unbindIosForgetReminderMessage': '设备端配对信息已清除，但手机系统蓝牙里通常仍会保留该设备。\n\n'
+          '重新连接前，请打开「设置 > 蓝牙」，找到该设备并选择「忽略此设备 / 取消配对」，再返回 App 重新添加。',
       'unbinding': '正在解绑...',
       'unbindDoneSnack': '已解绑并从 App 移除设备',
       'recordingModeNormal': '普通',

@@ -54,7 +54,6 @@ class SentryNoise {
   /// Drop manual [SentryService.captureMessage] payloads.
   static bool isExpectedMessage(String message, {Object? error}) {
     final m = message.trim();
-    if (m.startsWith('Bootstrap step failed:')) return true;
     if (m == 'Session merge refused (incomplete payload)') return true;
     if (m.startsWith('Login failed')) {
       return error == null || _isExpectedAuthUserError(error);
