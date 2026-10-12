@@ -812,6 +812,7 @@ class WifiTransferController extends Notifier<WifiTransferState> {
             expectedBytes: expectedBytes != null && expectedBytes > 0
                 ? expectedBytes
                 : null,
+            touchUpdatedAt: false,
           ),
         ).catchError((_) {});
       },
